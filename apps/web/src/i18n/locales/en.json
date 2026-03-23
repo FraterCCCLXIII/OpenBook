@@ -26,5 +26,7 @@
   "logs": "Logs",
   "provider_bookings": "Bookings",
   "admin_settings": "Admin settings",
-  "language": "Language"
+  "language": "Language",
+  "expand_sidebar": "Expand sidebar",
+  "collapse_sidebar": "Collapse sidebar"
 }
