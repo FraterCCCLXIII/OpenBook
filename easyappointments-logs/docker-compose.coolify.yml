@@ -1,0 +1,74 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - BASE_URL=${BASE_URL:-http://localhost}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_NAME=${DB_NAME:-easyappointments}
+      - DB_USERNAME=${DB_USERNAME:-user}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DEBUG_MODE=${DEBUG_MODE:-false}
+      - LANGUAGE=${LANGUAGE:-english}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+      - PHI_ENCRYPTION_ENABLED=${PHI_ENCRYPTION_ENABLED:-false}
+      - PHI_ALLOW_PLAINTEXT_SEARCH=${PHI_ALLOW_PLAINTEXT_SEARCH:-true}
+      - SESSION_MATCH_IP=${SESSION_MATCH_IP:-false}
+      - DB_SSL_ENABLED=${DB_SSL_ENABLED:-false}
+      - DB_SSL_CA=${DB_SSL_CA:-}
+      - DB_SSL_CERT=${DB_SSL_CERT:-}
+      - DB_SSL_KEY=${DB_SSL_KEY:-}
+      - BACKUP_ENCRYPTION_ENABLED=${BACKUP_ENCRYPTION_ENABLED:-}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+      - AUDIT_LOG_RETENTION_DAYS=${AUDIT_LOG_RETENTION_DAYS:-365}
+      - USER_FILE_ALLOWED_EXTENSIONS=${USER_FILE_ALLOWED_EXTENSIONS:-}
+      - USER_FILE_ALLOWED_MIME_TYPES=${USER_FILE_ALLOWED_MIME_TYPES:-}
+      - USER_FILE_AV_SCAN_COMMAND=${USER_FILE_AV_SCAN_COMMAND:-}
+    depends_on:
+      - db
+    volumes:
+      - storage_data:/var/www/html/storage
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.gzip.compress=true
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      - traefik.http.routers.http-0-cows4gcoc4gkwk88ckw48ckc-app.entryPoints=http
+      - traefik.http.routers.http-0-cows4gcoc4gkwk88ckw48ckc-app.middlewares=redirect-to-https
+      - 'traefik.http.routers.http-0-cows4gcoc4gkwk88ckw48ckc-app.rule=Host(`booking.usegoodness.com`) && PathPrefix(`/`)'
+      - traefik.http.routers.https-0-cows4gcoc4gkwk88ckw48ckc-app.entryPoints=https
+      - traefik.http.routers.https-0-cows4gcoc4gkwk88ckw48ckc-app.middlewares=gzip
+      - 'traefik.http.routers.https-0-cows4gcoc4gkwk88ckw48ckc-app.rule=Host(`booking.usegoodness.com`) && PathPrefix(`/`)'
+      - traefik.http.routers.https-0-cows4gcoc4gkwk88ckw48ckc-app.tls.certresolver=letsencrypt
+      - traefik.http.routers.https-0-cows4gcoc4gkwk88ckw48ckc-app.tls=true
+      - 'caddy_0.encode=zstd gzip'
+      - 'caddy_0.handle_path.0_reverse_proxy={{upstreams}}'
+      - 'caddy_0.handle_path=/*'
+      - caddy_0.header=-Server
+      - 'caddy_0.try_files={path} /index.html /index.php'
+      - 'caddy_0=https://booking.usegoodness.com'
+      - caddy_ingress_network=cows4gcoc4gkwk88ckw48ckc
+    networks:
+      internal:
+      cows4gcoc4gkwk88ckw48ckc:
+
+  db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-secret}
+      - MYSQL_DATABASE=${DB_NAME:-easyappointments}
+      - MYSQL_USER=${DB_USERNAME:-user}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-password}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      internal:
+
+volumes:
+  storage_data:
+  db_data:
+
+networks:
+  internal:
+  cows4gcoc4gkwk88ckw48ckc:
+    external: true

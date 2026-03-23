@@ -1,0 +1,66 @@
+<?php
+class Config
+{
+    // ------------------------------------------------------------------------
+    // GENERAL SETTINGS
+    // ------------------------------------------------------------------------
+
+    public const BASE_URL = null; // Will be auto-detected if null
+    public const LANGUAGE = 'english';
+    public const DEBUG_MODE = false;
+
+    // ------------------------------------------------------------------------
+    // DATABASE SETTINGS
+    // ------------------------------------------------------------------------
+
+    public const DB_HOST = null;
+    public const DB_NAME = null;
+    public const DB_USERNAME = null;
+    public const DB_PASSWORD = null;
+
+    // ------------------------------------------------------------------------
+    // GOOGLE CALENDAR SYNC
+    // ------------------------------------------------------------------------
+
+    public const GOOGLE_SYNC_FEATURE = false;
+    public const GOOGLE_CLIENT_ID = '';
+    public const GOOGLE_CLIENT_SECRET = '';
+
+    // ------------------------------------------------------------------------
+    // SECURITY (ENV-DRIVEN)
+    // ------------------------------------------------------------------------
+    // ENCRYPTION_KEY (base64 32 bytes) must be provided via environment for PHI encryption.
+    // PHI_ENCRYPTION_ENABLED=true enables application-level encryption for PHI fields.
+    // USER_FILE_ALLOWED_EXTENSIONS / USER_FILE_ALLOWED_MIME_TYPES restrict uploads.
+    // USER_FILE_AV_SCAN_COMMAND="clamdscan --no-summary %s" enables AV scanning.
+
+    /**
+     * Get a configuration value from environment or constant.
+     */
+    public static function get($name, $default = null)
+    {
+        $envValue = getenv($name);
+        if ($envValue !== false) {
+            if ($envValue === 'true') return true;
+            if ($envValue === 'false') return false;
+            return $envValue;
+        }
+
+        return defined("self::$name") ? constant("self::$name") : $default;
+    }
+
+    // Dynamic properties to allow override
+    public static function __callStatic($name, $args)
+    {
+        return self::get($name);
+    }
+}
+
+// Map constants to environment variables or defaults
+if (!defined('EA_CONFIG_LOADED')) {
+    define('EA_CONFIG_LOADED', true);
+    
+    // We can't easily change constants at runtime in PHP, 
+    // but we can make the Config class methods return env values.
+    // However, the existing code uses Config::BASE_URL etc.
+}

@@ -1,0 +1,318 @@
+/* ----------------------------------------------------------------------------
+ * Easy!Appointments - Online Appointment Scheduler
+ *
+ * @package     EasyAppointments
+ * @author      A.Tselegidis <alextselegidis@gmail.com>
+ * @copyright   Copyright (c) Alex Tselegidis
+ * @license     https://opensource.org/licenses/GPL-3.0 - GPLv3
+ * @link        https://easyappointments.org
+ * @since       v1.5.0
+ * ---------------------------------------------------------------------------- */
+
+root {
+    display: block;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+#main {
+    min-height: 100%;
+}
+
+.booking-tab-line-list {
+    border-color: var(--bs-border-color);
+}
+
+.booking-tab-line,
+.booking-tab-line.active {
+    font-weight: 500 !important;
+}
+
+/* BOOK APPOINTMENT WIZARD
+ ------------------------------------------------------------------------------ */
+
+#book-appointment-wizard {
+    padding: 0;
+    margin: 0 auto;
+    float: none;
+}
+
+#booking-top-nav svg {
+    width: 140px;
+    max-width: 100%;
+    height: auto;
+}
+
+#book-appointment-wizard #form-message {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+#book-appointment-wizard .wizard-frame .flatpickr-calendar {
+    margin: 25px auto;
+}
+
+#book-appointment-wizard .book-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 6px;
+    width: 36px;
+    background: #d1d5db;
+    border-radius: 999px;
+    transition: all 0.3s linear;
+}
+
+#book-appointment-wizard .book-step strong {
+    font-size: 0;
+    line-height: 0;
+    margin: 0;
+}
+
+#book-appointment-wizard .active-step,
+#book-appointment-wizard .completed-step {
+    height: 6px;
+    width: 36px;
+    background: #024225;
+}
+
+#book-appointment-wizard .active-step strong,
+#book-appointment-wizard .completed-step strong {
+    font-size: 0;
+}
+
+
+#book-appointment-wizard #available-hours {
+    overflow-y: auto;
+    margin: 15px 0;
+    padding-right: 10px;
+    width: auto;
+    max-height: 250px;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 10px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
+    }
+}
+
+#select-timezone {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 1.1rem;
+    background-position: right 0.15rem center;
+}
+
+#book-appointment-wizard #available-hours div {
+    margin-right: 30px;
+}
+
+#book-appointment-wizard #available-hours .available-hour {
+    margin-bottom: 10px;
+}
+
+#book-appointment-wizard #available-hours .selected-hour {
+    background-color: #439a82;
+    border-color: #439a82;
+    color: white;
+}
+
+#book-appointment-wizard #appointment-details p,
+#book-appointment-wizard #customer-details p {
+    font-size: 16px;
+    line-height: 28px;
+}
+
+#book-appointment-wizard .captcha-title {
+    display: block;
+    margin: 7px 0 10px 0;
+}
+
+#book-appointment-wizard .captcha-title .fa-sync-alt {
+    cursor: pointer;
+    transition: all 0.3s linear;
+}
+
+#book-appointment-wizard .captcha-title .fa-sync-alt:hover {
+    color: #1a865f;
+}
+
+#book-appointment-wizard .captcha-image {
+    display: block;
+    margin-bottom: 20px;
+    border-radius: 3px;
+}
+
+#book-appointment-wizard .captcha-text {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+
+#book-appointment-wizard #service-description {
+    overflow-y: auto;
+    clear: both;
+    max-height: 153px;
+    box-shadow: none;
+}
+
+
+/* BOOK SUCCESS & MESSAGE
+   ------------------------------------------------------------------------- */
+
+#message-frame,
+#success-frame {
+    background: #fff;
+    text-align: center;
+    height: auto;
+    border: 1px solid var(--bs-border-color, #e2e8f0);
+    padding: 1rem 1.5rem;
+}
+
+#message-frame .alert,
+#success-frame .alert {
+    margin-top: 20px;
+}
+
+#message-frame #message-icon,
+#success-frame #success-icon {
+    margin-top: 20px;
+    margin-right: 20px;
+    width: 64px;
+    display: block;
+    margin: auto;
+    float: none !important;
+}
+
+#success-frame .btn {
+    margin-bottom: 10px;
+    width: 80%;
+    max-width: 300px;
+}
+
+@media (min-width: 768px) {
+    #message-frame,
+    #success-frame {
+        height: auto;
+    }
+}
+
+/* CUSTOM DATE PICKER
+   ------------------------------------------------------------------------- */
+
+.date-picker-container {
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    margin: 0 auto;
+    max-width: 600px;
+}
+
+.date-picker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    width: 100%;
+    background-color: #fff;
+    border-radius: 8px;
+    border: 1px solid var(--bs-border-color, #e2e8f0);
+}
+
+.months-container,
+.dates-container {
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    padding: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    scrollbar-width: none; /* Firefox */
+}
+
+.months-container::-webkit-scrollbar,
+.dates-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.months-container {
+    border-bottom: 1px solid var(--bs-border-color, #e2e8f0);
+}
+
+.month,
+.date {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    text-align: center;
+    border: 1px solid var(--bs-border-color, #e2e8f0);
+    margin: 0 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #fff;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    user-select: none;
+    color: #0f172a;
+}
+
+.date {
+    min-width: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.date .day-name {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+    opacity: 0.7;
+}
+
+.date .day-number {
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+.month.selected,
+.date.selected {
+    background: var(--bs-primary, #439a82);
+    color: #fff;
+    border-color: var(--bs-primary, #439a82);
+}
+
+.month.selected .day-name,
+.date.selected .day-name {
+    opacity: 1;
+}
+
+.month:hover:not(.selected),
+.date:hover:not(.selected) {
+    background: #f1f5f9;
+}
+
+.month.disabled,
+.date.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
