@@ -60,7 +60,45 @@ export class StripeWebhookController {
       },
     });
 
-    // Extend with payment_intent.succeeded, checkout.session.completed, etc.
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as {
+        id: string;
+        payment_intent?: string | null;
+        metadata?: Record<string, string> | null;
+      };
+      const sessionId = session.id;
+      const paymentIntentId = session.payment_intent ?? null;
+      const appointmentIdStr = session.metadata?.appointmentId;
+
+      await this.prisma.appointmentPayment.updateMany({
+        where: { stripeCheckoutSessionId: sessionId },
+        data: {
+          status: 'succeeded',
+          stripeEventId: event.id,
+          ...(paymentIntentId
+            ? { stripePaymentIntentId: paymentIntentId }
+            : {}),
+        },
+      });
+
+      await this.prisma.auditLog.create({
+        data: {
+          action: 'stripe_checkout_completed',
+          metadata: JSON.stringify({
+            sessionId,
+            appointmentId: appointmentIdStr,
+            paymentIntentId,
+          }),
+        },
+      });
+    } else if (event.type === 'payment_intent.succeeded') {
+      const pi = event.data.object as { id: string };
+      await this.prisma.appointmentPayment.updateMany({
+        where: { stripePaymentIntentId: pi.id },
+        data: { status: 'succeeded', stripeEventId: event.id },
+      });
+    }
+
     await this.prisma.auditLog.create({
       data: {
         action: 'stripe_webhook',

@@ -52,7 +52,10 @@ export class StaffProviderBookingsController {
         notes: a.notes,
         serviceName: a.service?.name ?? null,
         customerName:
-          [a.customer?.firstName, a.customer?.lastName].filter(Boolean).join(' ').trim() ||
+          [a.customer?.firstName, a.customer?.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() ||
           a.customer?.email ||
           null,
       })),
@@ -97,7 +100,10 @@ export class StaffProviderBookingsController {
       notes: a.notes,
       serviceName: a.service?.name ?? null,
       customerName:
-        [a.customer?.firstName, a.customer?.lastName].filter(Boolean).join(' ').trim() ||
+        [a.customer?.firstName, a.customer?.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim() ||
         a.customer?.email ||
         null,
     };

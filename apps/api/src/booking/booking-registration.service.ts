@@ -47,7 +47,9 @@ export class BookingRegistrationService {
   }) {
     const email = input.email.trim().toLowerCase();
     if (!email || !input.firstName?.trim() || !input.lastName?.trim()) {
-      throw new BadRequestException('first_name, last_name, and email are required');
+      throw new BadRequestException(
+        'first_name, last_name, and email are required',
+      );
     }
 
     await this.catalog.assertProviderOffersService(
@@ -83,14 +85,13 @@ export class BookingRegistrationService {
         isUnavailability: 0,
         startDatetime: { not: null },
         endDatetime: { not: null },
-        AND: [
-          { startDatetime: { lt: end } },
-          { endDatetime: { gt: start } },
-        ],
+        AND: [{ startDatetime: { lt: end } }, { endDatetime: { gt: start } }],
       },
     });
     if (overlap >= capacity) {
-      throw new BadRequestException('That slot was just taken — pick another time');
+      throw new BadRequestException(
+        'That slot was just taken — pick another time',
+      );
     }
 
     const guestLines = [

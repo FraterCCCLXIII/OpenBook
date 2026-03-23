@@ -94,8 +94,33 @@ Without `DATABASE_URL`, login and booking flows will fail while smoke tests stil
 | `/staff/login` | Admin / provider / secretary sign in |
 | `/staff/dashboard` | Staff dashboard |
 | `/staff/settings/*` | Settings sections (general, business, …) |
+| `/staff/forms` | Staff form builder |
+| `/staff/billing` | Billing & Stripe payment records |
+| `/staff/settings/webhooks` | Outgoing webhook configuration |
+| `/customer/create-password` | OTP first-time password setup |
+| `/customer/forms` | Customer forms list |
+| `/customer/forms/:id` | Customer form fill-out |
 
 Anonymous booking: `GET /api/booking/services`, `GET /api/booking/services/:id/providers`, `POST /api/booking/appointments` (guest booking). Staff JSON routes live under `/api/staff/*` (cookie auth). Customer appointments: `GET /api/customer/appointments`. Integrations: `GET /api/v1/ping`, `GET /api/v1/services`, `GET /api/v1/appointments` with `Authorization: Bearer` and `OPENBOOK_API_TOKEN` on the server.
+
+### Environment variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | MySQL connection string |
+| `JWT_SECRET` | Yes | Secret for signing JWTs |
+| `APP_URL` | No | Public base URL (e.g. `https://example.com`). Used in OAuth callbacks and email links. |
+| `OPENBOOK_API_TOKEN` | No | Bearer token for REST v1 endpoints |
+| `REDIS_URL` | No | Redis URL for BullMQ job queues |
+| `STRIPE_SECRET_KEY` | No | Stripe secret key for payments |
+| `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook signing secret |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth client ID (calendar sync) |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | No | OAuth redirect URI (defaults to `APP_URL + /api/integrations/google/callback`) |
+| `SMTP_HOST` | No | SMTP host for email notifications. Default: `localhost` (Mailpit in docker-compose). |
+| `SMTP_PORT` | No | SMTP port. Default: `1025` (Mailpit). Production: `587` (STARTTLS) or `465` (SSL). |
+| `SMTP_USER` | No | SMTP username. Leave blank for Mailpit local dev. |
+| `SMTP_PASS` | No | SMTP password. Leave blank for Mailpit local dev. |
 
 ## Local services
 

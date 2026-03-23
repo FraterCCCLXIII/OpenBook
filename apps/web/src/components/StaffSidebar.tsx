@@ -67,6 +67,12 @@ export function StaffSidebar() {
           </NavLink>
         )}
         {canViewStaff(staff, 'system_settings') && (
+          <NavLink to="/staff/forms" className={itemClass}>
+            <FileText className="h-4 w-4 shrink-0" aria-hidden />
+            Forms
+          </NavLink>
+        )}
+        {canViewStaff(staff, 'system_settings') && (
           <NavLink to="/staff/billing" className={itemClass}>
             <FileText className="h-4 w-4 shrink-0" aria-hidden />
             {t('billing')}
@@ -113,6 +119,12 @@ export function StaffSidebar() {
           </div>
         )}
         <div className="mt-auto border-t border-zinc-800 pt-2">
+          {canViewStaff(staff, 'system_settings') && (
+            <NavLink to="/staff/webhooks" className={itemClass}>
+              <ScrollText className="h-4 w-4 shrink-0" aria-hidden />
+              Webhooks
+            </NavLink>
+          )}
           {canViewStaff(staff, 'system_settings') && (
             <NavLink to="/staff/settings" className={itemClass}>
               <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />

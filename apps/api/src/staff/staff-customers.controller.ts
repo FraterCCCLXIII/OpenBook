@@ -2,11 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   NotFoundException,
   Param,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -107,6 +109,76 @@ export class StaffCustomersController {
     };
   }
 
+  @Post()
+  async create(
+    @Req() req: RequestWithStaff,
+    @Body()
+    body: {
+      first_name?: string;
+      last_name?: string;
+      email?: string;
+    },
+  ) {
+    if (!can(req.staffUser.permissions, 'customers', 'add')) {
+      throw new ForbiddenException();
+    }
+    const email = body.email?.trim().toLowerCase();
+    if (!email) {
+      throw new BadRequestException('email is required');
+    }
+    const existing = await this.prisma.user.findFirst({ where: { email } });
+    if (existing) {
+      throw new BadRequestException('Email already in use');
+    }
+    const customerRole = await this.prisma.role.findFirst({
+      where: { slug: 'customer' },
+    });
+    if (!customerRole) {
+      throw new BadRequestException('Customer role not found');
+    }
+    const user = await this.prisma.user.create({
+      data: {
+        firstName: body.first_name?.trim() || null,
+        lastName: body.last_name?.trim() || null,
+        email,
+        idRoles: customerRole.id,
+        timezone: 'UTC',
+      },
+    });
+    return {
+      id: user.id.toString(),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+    };
+  }
+
+  @Delete(':id')
+  async remove(@Req() req: RequestWithStaff, @Param('id') id: string) {
+    if (!can(req.staffUser.permissions, 'customers', 'delete')) {
+      throw new ForbiddenException();
+    }
+    const customerRole = await this.prisma.role.findFirst({
+      where: { slug: 'customer' },
+    });
+    let uid: bigint;
+    try {
+      uid = BigInt(id);
+    } catch {
+      throw new NotFoundException();
+    }
+    const user = await this.prisma.user.findFirst({
+      where: { id: uid, ...(customerRole ? { idRoles: customerRole.id } : {}) },
+    });
+    if (!user) {
+      throw new NotFoundException();
+    }
+    // Clean up related auth records first
+    await this.prisma.customerAuth.deleteMany({ where: { customerId: uid } });
+    await this.prisma.user.delete({ where: { id: uid } });
+    return { ok: true };
+  }
+
   @Patch(':id')
   async patch(
     @Req() req: RequestWithStaff,
@@ -147,9 +219,13 @@ export class StaffCustomersController {
       where: { id: uid },
       data: {
         firstName:
-          body.first_name !== undefined ? body.first_name.trim() || null : undefined,
+          body.first_name !== undefined
+            ? body.first_name.trim() || null
+            : undefined,
         lastName:
-          body.last_name !== undefined ? body.last_name.trim() || null : undefined,
+          body.last_name !== undefined
+            ? body.last_name.trim() || null
+            : undefined,
         email: email !== undefined ? email || null : undefined,
       },
     });

@@ -1,4 +1,10 @@
-import { Controller, ForbiddenException, Get, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   StaffAuthGuard,
   type RequestWithStaff,

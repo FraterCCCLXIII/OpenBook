@@ -76,6 +76,20 @@ export class SettingsService {
     return row?.value ?? null;
   }
 
+  async getSettingsByNames(
+    names: string[],
+  ): Promise<Record<string, string | null>> {
+    const rows = await this.prisma.setting.findMany({
+      where: { name: { in: names } },
+    });
+    const out: Record<string, string | null> = {};
+    for (const name of names) {
+      const row = rows.find((r) => r.name === name);
+      out[name] = row?.value ?? null;
+    }
+    return out;
+  }
+
   async requireSettingForStaff(
     perms: PermissionsMap,
     name: string,

@@ -23,6 +23,9 @@ export function CustomerHeader() {
           <Link to="/customer/account" className="text-emerald-400 hover:underline">
             {t('my_account')}
           </Link>
+          <Link to="/customer/consents" className="text-emerald-400 hover:underline">
+            Privacy
+          </Link>
         </div>
         <button
           type="button"

@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { ApiV1Module } from './api-v1/api-v1.module';
 import { AuthModule } from './auth/auth.module';
 import { BookingModule } from './booking/booking.module';
+import { FormsModule } from './forms/forms.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -21,6 +23,8 @@ import { StripeModule } from './stripe/stripe.module';
     PrismaModule,
     AuthModule,
     BookingModule,
+    FormsModule,
+    IntegrationsModule,
     ApiV1Module,
     HealthModule,
     SettingsModule,

@@ -34,6 +34,25 @@ export class JobsQueueService implements OnModuleDestroy {
     );
   }
 
+  async enqueueWebhookDispatch(payload: {
+    event:
+      | 'appointment.created'
+      | 'appointment.updated'
+      | 'appointment.deleted';
+    appointmentId: string;
+  }): Promise<void> {
+    if (!this.queue) {
+      this.log.debug('REDIS_URL not set; skip webhook-dispatch job');
+      return;
+    }
+    await this.queue.add('webhook-dispatch', payload, {
+      removeOnComplete: 200,
+      removeOnFail: 500,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
+    });
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.queue?.close();
   }

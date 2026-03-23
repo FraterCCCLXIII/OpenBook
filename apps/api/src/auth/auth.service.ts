@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import * as ldap from 'ldapjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPasswordEa } from './password.ea';
 import {
@@ -42,6 +43,68 @@ export class AuthService {
     }
   }
 
+  /**
+   * Attempt LDAP bind for the given email and password.
+   * Returns true if bind succeeded, false if credentials are wrong or LDAP is
+   * unreachable (caller falls back to bcrypt).
+   */
+  async ldapBind(email: string, password: string): Promise<boolean> {
+    const settings = await this.prisma.setting.findFirst({
+      where: { name: 'ldap_is_active' },
+    });
+    if (settings?.value !== '1') return false;
+
+    const [host, portSetting, bindDN, bindPassword, baseDN, uidField] =
+      await Promise.all([
+        this.prisma.setting.findFirst({ where: { name: 'ldap_host' } }),
+        this.prisma.setting.findFirst({ where: { name: 'ldap_port' } }),
+        this.prisma.setting.findFirst({ where: { name: 'ldap_username' } }),
+        this.prisma.setting.findFirst({ where: { name: 'ldap_password' } }),
+        this.prisma.setting.findFirst({ where: { name: 'ldap_base_dn' } }),
+        this.prisma.setting.findFirst({ where: { name: 'ldap_uid_field' } }),
+      ]);
+
+    const ldapHost = host?.value ?? 'localhost';
+    const ldapPort = Number(portSetting?.value ?? 389);
+    const ldapBaseDN = baseDN?.value ?? '';
+    const uidAttr = uidField?.value ?? 'uid';
+    const userDN = `${uidAttr}=${email},${ldapBaseDN}`;
+
+    return new Promise<boolean>((resolve) => {
+      const client = ldap.createClient({
+        url: `ldap://${ldapHost}:${ldapPort}`,
+        connectTimeout: 5000,
+        timeout: 5000,
+      });
+
+      // Optionally bind with service account first
+      const doUserBind = () => {
+        client.bind(userDN, password, (err) => {
+          client.destroy();
+          resolve(!err);
+        });
+      };
+
+      if (bindDN?.value && bindPassword?.value) {
+        client.bind(bindDN.value, bindPassword.value, (err) => {
+          if (err) {
+            client.destroy();
+            resolve(false);
+            return;
+          }
+          doUserBind();
+        });
+      } else {
+        doUserBind();
+      }
+
+      client.on('error', () => {
+        client.destroy();
+        resolve(false);
+      });
+    });
+  }
+
   async staffLogin(
     username: string,
     password: string,
@@ -51,12 +114,23 @@ export class AuthService {
       where: { username },
       include: { user: { include: { role: true } } },
     });
-    if (!settings?.salt || !settings.password || !settings.user?.role?.slug) {
+    if (!settings?.user?.role?.slug) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const hashed = hashPasswordEa(settings.salt, password);
-    if (hashed !== settings.password) {
-      throw new UnauthorizedException('Invalid credentials');
+
+    // LDAP auth path: use the user's email as the LDAP UID
+    const userEmail = settings.user.email ?? username;
+    const usedLdap = await this.ldapBind(userEmail, password);
+
+    if (!usedLdap) {
+      // Fall back to EA bcrypt check
+      if (!settings.salt || !settings.password) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      const hashed = hashPasswordEa(settings.salt, password);
+      if (hashed !== settings.password) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
     }
     const user = settings.user;
     const role = user.role;
@@ -104,7 +178,9 @@ export class AuthService {
     this.ensureDb();
     const normalized = email.trim().toLowerCase();
     if (!normalized || !password || password.length < 6) {
-      throw new BadRequestException('Valid email and password (min 6 chars) required');
+      throw new BadRequestException(
+        'Valid email and password (min 6 chars) required',
+      );
     }
     const existing = await this.prisma.customerAuth.findFirst({
       where: { email: normalized },
@@ -265,9 +341,13 @@ export class AuthService {
       where: { id: customerId },
       data: {
         firstName:
-          body.firstName !== undefined ? body.firstName.trim() || null : undefined,
+          body.firstName !== undefined
+            ? body.firstName.trim() || null
+            : undefined,
         lastName:
-          body.lastName !== undefined ? body.lastName.trim() || null : undefined,
+          body.lastName !== undefined
+            ? body.lastName.trim() || null
+            : undefined,
       },
     });
     return {
@@ -276,6 +356,129 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
     };
+  }
+
+  /** Issue a short-lived JWT after OTP verification for password-set flows. */
+  async issueOtpSessionToken(email: string): Promise<string> {
+    this.ensureDb();
+    const normalized = email.trim().toLowerCase();
+    const auth = await this.prisma.customerAuth.findFirst({
+      where: { email: normalized },
+    });
+    if (!auth) {
+      throw new BadRequestException('No account found for this email');
+    }
+    const payload: CustomerJwtPayload = {
+      kind: 'customer',
+      customerId: auth.customerId.toString(),
+      email: auth.email,
+    };
+    return this.jwt.signAsync({ ...payload }, { expiresIn: '15m' });
+  }
+
+  /** Set password for the first time (no existing password required). */
+  async customerCreatePassword(
+    email: string,
+    password: string,
+  ): Promise<{ token: string; user: CustomerMeResponse }> {
+    this.ensureDb();
+    const normalized = email.trim().toLowerCase();
+    if (!normalized || !password || password.length < 6) {
+      throw new BadRequestException(
+        'Valid email and password (min 6 chars) required',
+      );
+    }
+    const auth = await this.prisma.customerAuth.findFirst({
+      where: { email: normalized },
+    });
+    if (!auth) {
+      throw new BadRequestException('No account found for this email');
+    }
+    if (auth.passwordHash) {
+      throw new BadRequestException(
+        'Password already set. Use change-password instead.',
+      );
+    }
+    const hash = await bcrypt.hash(password, 10);
+    await this.prisma.customerAuth.update({
+      where: { id: auth.id },
+      data: { passwordHash: hash, status: 'active' },
+    });
+    const payload: CustomerJwtPayload = {
+      kind: 'customer',
+      customerId: auth.customerId.toString(),
+      email: auth.email,
+    };
+    const token = await this.jwt.signAsync({ ...payload });
+    const u = await this.prisma.user.findUnique({
+      where: { id: auth.customerId },
+    });
+    return {
+      token,
+      user: {
+        kind: 'customer',
+        customerId: auth.customerId.toString(),
+        email: auth.email,
+        firstName: u?.firstName ?? null,
+        lastName: u?.lastName ?? null,
+      },
+    };
+  }
+
+  /** Change password after OTP verification. */
+  async customerChangePassword(
+    customerId: bigint,
+    newPassword: string,
+  ): Promise<void> {
+    this.ensureDb();
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters');
+    }
+    const auth = await this.prisma.customerAuth.findFirst({
+      where: { customerId, status: 'active' },
+    });
+    if (!auth) {
+      throw new UnauthorizedException();
+    }
+    const hash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.customerAuth.update({
+      where: { id: auth.id },
+      data: { passwordHash: hash },
+    });
+  }
+
+  /** Change email after OTP verification on the old address. */
+  async customerChangeEmail(
+    customerId: bigint,
+    newEmail: string,
+  ): Promise<void> {
+    this.ensureDb();
+    const normalized = newEmail.trim().toLowerCase();
+    if (!normalized) {
+      throw new BadRequestException('Valid email required');
+    }
+    const existing = await this.prisma.customerAuth.findFirst({
+      where: { email: normalized },
+    });
+    if (existing && existing.customerId !== customerId) {
+      throw new ConflictException('Email already in use');
+    }
+    const auth = await this.prisma.customerAuth.findFirst({
+      where: { customerId, status: 'active' },
+    });
+    if (!auth) {
+      throw new UnauthorizedException();
+    }
+    await this.prisma.$transaction([
+      this.prisma.customerAuth.update({
+        where: { id: auth.id },
+        data: { email: normalized },
+      }),
+      this.prisma.user.update({
+        where: { id: customerId },
+        data: { email: normalized },
+      }),
+    ]);
   }
 }
 

@@ -8,7 +8,9 @@ import type { Request } from 'express';
 import { AuthService, type CustomerMeResponse } from './auth.service';
 import { readAuthToken } from './read-auth-token';
 
-export type RequestWithCustomer = Request & { customerUser: CustomerMeResponse };
+export type RequestWithCustomer = Request & {
+  customerUser: CustomerMeResponse;
+};
 
 @Injectable()
 export class CustomerAuthGuard implements CanActivate {

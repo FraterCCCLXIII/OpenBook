@@ -132,7 +132,9 @@ export class StaffServicesController {
     } catch {
       throw new NotFoundException();
     }
-    const existing = await this.prisma.service.findUnique({ where: { id: sid } });
+    const existing = await this.prisma.service.findUnique({
+      where: { id: sid },
+    });
     if (!existing) {
       throw new NotFoundException();
     }

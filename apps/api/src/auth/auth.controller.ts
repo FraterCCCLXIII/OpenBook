@@ -6,14 +6,23 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { CustomerOtpService } from './customer-otp.service';
 import { readAuthToken } from './read-auth-token';
+import {
+  CustomerAuthGuard,
+  type RequestWithCustomer,
+} from './customer-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly otp: CustomerOtpService,
+  ) {}
 
   @Post('staff/login')
   async staffLogin(
@@ -86,6 +95,89 @@ export class AuthController {
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('ob_auth', { path: '/' });
+    return { ok: true };
+  }
+
+  @Post('customer/request-otp')
+  async requestOtp(@Body() body: { email?: string }) {
+    if (!body.email?.trim()) {
+      throw new BadRequestException('email is required');
+    }
+    const code = await this.otp.requestCode(body.email.trim());
+    // In production wire to email/SMS. Dev: return code so it can be tested.
+    const isDev = process.env.NODE_ENV !== 'production';
+    return { ok: true, ...(isDev ? { code } : {}) };
+  }
+
+  @Post('customer/verify-otp')
+  async verifyOtp(
+    @Body() body: { email?: string; code?: string },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (!body.email?.trim() || !body.code?.trim()) {
+      throw new BadRequestException('email and code are required');
+    }
+    await this.otp.verifyCode(body.email.trim(), body.code.trim());
+    const token = await this.auth.issueOtpSessionToken(body.email.trim());
+    res.cookie('ob_auth', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 15 * 60 * 1000, // 15 min — short-lived for password-reset flow
+    });
+    return { ok: true };
+  }
+
+  @Post('customer/create-password')
+  async createPassword(
+    @Body() body: { email?: string; password?: string },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (!body.email?.trim() || !body.password) {
+      throw new BadRequestException('email and password are required');
+    }
+    const { token, user } = await this.auth.customerCreatePassword(
+      body.email.trim(),
+      body.password,
+    );
+    res.cookie('ob_auth', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    return { user };
+  }
+
+  @Post('customer/change-password')
+  @UseGuards(CustomerAuthGuard)
+  async changePassword(
+    @Req() req: RequestWithCustomer,
+    @Body() body: { new_password?: string },
+  ) {
+    if (!body.new_password) {
+      throw new BadRequestException('new_password is required');
+    }
+    await this.auth.customerChangePassword(
+      BigInt(req.customerUser.customerId),
+      body.new_password,
+    );
+    return { ok: true };
+  }
+
+  @Post('customer/change-email')
+  @UseGuards(CustomerAuthGuard)
+  async changeEmail(
+    @Req() req: RequestWithCustomer,
+    @Body() body: { new_email?: string },
+  ) {
+    if (!body.new_email?.trim()) {
+      throw new BadRequestException('new_email is required');
+    }
+    await this.auth.customerChangeEmail(
+      BigInt(req.customerUser.customerId),
+      body.new_email.trim(),
+    );
     return { ok: true };
   }
 

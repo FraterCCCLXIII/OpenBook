@@ -6,11 +6,14 @@ import { StaffAuditController } from './staff-audit.controller';
 import { StaffBillingController } from './staff-billing.controller';
 import { StaffCalendarController } from './staff-calendar.controller';
 import { StaffCustomersController } from './staff-customers.controller';
+import { StaffDashboardController } from './staff-dashboard.controller';
 import { StaffProviderBookingsController } from './staff-provider-bookings.controller';
 import { StaffServiceCategoriesController } from './staff-service-categories.controller';
 import { StaffServicesController } from './staff-services.controller';
 import { StaffSystemController } from './staff-system.controller';
 import { StaffTeamController } from './staff-team.controller';
+import { StaffWebhooksController } from './staff-webhooks.controller';
+import { StaffProvidersController } from './staff-providers.controller';
 
 @Module({
   imports: [AuthModule, PrismaModule],
@@ -18,6 +21,7 @@ import { StaffTeamController } from './staff-team.controller';
     StaffAccountController,
     StaffAuditController,
     StaffBillingController,
+    StaffDashboardController,
     StaffSystemController,
     StaffCustomersController,
     StaffServicesController,
@@ -25,6 +29,8 @@ import { StaffTeamController } from './staff-team.controller';
     StaffServiceCategoriesController,
     StaffTeamController,
     StaffProviderBookingsController,
+    StaffWebhooksController,
+    StaffProvidersController,
   ],
 })
 export class StaffModule {}

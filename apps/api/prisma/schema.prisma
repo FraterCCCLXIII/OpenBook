@@ -44,6 +44,12 @@ model User {
   providerAppointments Appointment[] @relation("ApptProvider")
   customerAppointments Appointment[] @relation("ApptCustomer")
   serviceLinks         ServiceProvider[]
+  formSubmissions      FormSubmission[]
+  customerNotes        CustomerNote[]
+  customerAlerts       CustomerAlert[]
+  customFieldValues    CustomerCustomFieldValue[]
+  userFiles            UserFile[]
+  consents             Consent[]
 
   @@map("ea_users")
 }
@@ -143,6 +149,8 @@ model Appointment {
   provider User?   @relation("ApptProvider", fields: [idUsersProvider], references: [id], onDelete: Cascade)
   customer User?   @relation("ApptCustomer", fields: [idUsersCustomer], references: [id], onDelete: Cascade)
   service  Service? @relation(fields: [idServices], references: [id], onDelete: Cascade)
+  payments         AppointmentPayment[]
+  appointmentNotes AppointmentNote[]
 
   @@index([idUsersProvider])
   @@index([startDatetime])
@@ -159,6 +167,136 @@ model BlockedPeriod {
   notes           String?   @db.Text
 
   @@map("ea_blocked_periods")
+}
+
+model CustomerOtp {
+  id                     Int       @id @default(autoincrement())
+  email                  String    @db.VarChar(512)
+  emailHash              String?   @map("email_hash") @db.VarChar(512)
+  codeHash               String?   @map("code_hash") @db.VarChar(512)
+  expiresAt              DateTime? @map("expires_at") @db.DateTime(0)
+  attemptCount           Int       @default(0) @map("attempt_count")
+  attemptWindowStartedAt DateTime? @map("attempt_window_started_at") @db.DateTime(0)
+  sendCount              Int       @default(0) @map("send_count")
+  sendWindowStartedAt    DateTime? @map("send_window_started_at") @db.DateTime(0)
+  lastSendAt             DateTime? @map("last_send_at") @db.DateTime(0)
+  lastAttemptAt          DateTime? @map("last_attempt_at") @db.DateTime(0)
+  lockoutUntil           DateTime? @map("lockout_until") @db.DateTime(0)
+  createDatetime         DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+  updateDatetime         DateTime? @updatedAt @map("update_datetime") @db.DateTime(0)
+
+  @@index([email])
+  @@map("ea_customer_otp")
+}
+
+model Form {
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(256)
+  slug           String    @unique @db.VarChar(256)
+  description    String?   @db.Text
+  isActive       Int       @default(1) @map("is_active") @db.TinyInt
+  createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+  updateDatetime DateTime? @updatedAt @map("update_datetime") @db.DateTime(0)
+
+  fields      FormField[]
+  submissions FormSubmission[]
+  assignments FormAssignment[]
+
+  @@map("ea_forms")
+}
+
+model FormField {
+  id             Int     @id @default(autoincrement())
+  idForms        Int     @map("id_forms")
+  label          String  @db.VarChar(256)
+  fieldType      String  @default("input") @map("field_type") @db.VarChar(32)
+  options        String? @db.Text
+  isRequired     Int     @default(0) @map("is_required") @db.TinyInt
+  isActive       Int     @default(1) @map("is_active") @db.TinyInt
+  sortOrder      Int     @default(0) @map("sort_order")
+
+  form Form @relation(fields: [idForms], references: [id], onDelete: Cascade)
+
+  @@index([idForms])
+  @@map("ea_form_fields")
+}
+
+model FormSubmission {
+  id             Int       @id @default(autoincrement())
+  idForms        Int       @map("id_forms")
+  idUsers        BigInt    @map("id_users")
+  submittedAt    DateTime? @default(now()) @map("submitted_at") @db.DateTime(0)
+  fieldsSnapshot String?   @map("fields_snapshot") @db.LongText
+
+  form Form @relation(fields: [idForms], references: [id], onDelete: Cascade)
+  user User @relation(fields: [idUsers], references: [id], onDelete: Cascade)
+
+  @@index([idForms])
+  @@index([idUsers])
+  @@map("ea_form_submissions")
+}
+
+model FormAssignment {
+  id       Int    @id @default(autoincrement())
+  idForms  Int    @map("id_forms")
+  roleSlug String @map("role_slug") @db.VarChar(64)
+
+  form Form @relation(fields: [idForms], references: [id], onDelete: Cascade)
+
+  @@index([idForms])
+  @@map("ea_form_assignments")
+}
+
+model Webhook {
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(256)
+  url            String    @db.VarChar(1024)
+  actions        String?   @db.VarChar(512)
+  secretToken    String?   @map("secret_token") @db.VarChar(256)
+  isActive       Int       @default(1) @map("is_active") @db.TinyInt
+  isSslVerified  Int       @default(1) @map("is_ssl_verified") @db.TinyInt
+  notes          String?   @db.Text
+  createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+  updateDatetime DateTime? @updatedAt @map("update_datetime") @db.DateTime(0)
+
+  @@map("ea_webhooks")
+}
+
+model AppointmentPayment {
+  id                     Int       @id @default(autoincrement())
+  idAppointments         BigInt    @map("id_appointments")
+  amount                 Decimal?  @db.Decimal(10, 2)
+  currency               String?   @db.VarChar(8)
+  status                 String    @default("pending") @db.VarChar(32)
+  stripeEventId          String?   @map("stripe_event_id") @db.VarChar(255)
+  stripePaymentIntentId  String?   @map("stripe_payment_intent_id") @db.VarChar(255)
+  stripeCheckoutSessionId String?  @map("stripe_checkout_session_id") @db.VarChar(255)
+  createDatetime         DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+  updateDatetime         DateTime? @updatedAt @map("update_datetime") @db.DateTime(0)
+
+  appointment Appointment @relation(fields: [idAppointments], references: [id], onDelete: Cascade)
+
+  @@index([idAppointments])
+  @@index([stripeEventId])
+  @@index([stripePaymentIntentId])
+  @@map("ea_appointment_payments")
+}
+
+model Consent {
+  id             Int       @id @default(autoincrement())
+  ip             String    @db.VarChar(64)
+  type           String    @db.VarChar(64)
+  idUsers        BigInt?   @map("id_users")
+  firstName      String?   @map("first_name") @db.VarChar(256)
+  lastName       String?   @map("last_name") @db.VarChar(256)
+  email          String?   @db.VarChar(512)
+  createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+  updateDatetime DateTime? @updatedAt @map("update_datetime") @db.DateTime(0)
+
+  user User? @relation(fields: [idUsers], references: [id], onDelete: SetNull)
+
+  @@index([idUsers])
+  @@map("ea_consents")
 }
 
 // OpenBook-native audit trail (not from legacy PHP ea_*).
@@ -178,4 +316,108 @@ model StripeWebhookEvent {
   receivedAt DateTime @default(now()) @map("received_at") @db.DateTime(0)
 
   @@map("openbook_stripe_events")
+}
+
+// ─── Additional PHP-fork models ──────────────────────────────────────────────
+
+model GeoNamesPostalCode {
+  id          BigInt  @id @default(autoincrement())
+  postalCode  String  @map("postal_code") @db.VarChar(20)
+  countryCode String  @map("country_code") @db.VarChar(2)
+  placeName   String? @map("place_name") @db.VarChar(256)
+  adminName1  String? @map("admin_name1") @db.VarChar(256)
+  adminCode1  String? @map("admin_code1") @db.VarChar(20)
+  latitude    Float?
+  longitude   Float?
+
+  @@index([postalCode, countryCode])
+  @@map("ea_geonames_postal_codes")
+}
+
+model AppointmentNote {
+  id             BigInt    @id @default(autoincrement())
+  idAppointments BigInt    @map("id_appointments")
+  idUsersAuthor  BigInt?   @map("id_users_author")
+  note           String?   @db.Text
+  createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+  updateDatetime DateTime? @updatedAt @map("update_datetime") @db.DateTime(0)
+
+  appointment Appointment @relation(fields: [idAppointments], references: [id], onDelete: Cascade)
+
+  @@index([idAppointments])
+  @@map("ea_appointment_notes")
+}
+
+model CustomerNote {
+  id             BigInt    @id @default(autoincrement())
+  idUsers        BigInt    @map("id_users")
+  notes          String?   @db.Text
+  createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+  updateDatetime DateTime? @updatedAt @map("update_datetime") @db.DateTime(0)
+
+  user User @relation(fields: [idUsers], references: [id], onDelete: Cascade)
+
+  @@index([idUsers])
+  @@map("ea_customer_notes")
+}
+
+model CustomerAlert {
+  id             BigInt    @id @default(autoincrement())
+  idUsers        BigInt    @map("id_users")
+  message        String?   @db.Text
+  isRead         Int       @default(0) @map("is_read") @db.TinyInt
+  createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+
+  user User @relation(fields: [idUsers], references: [id], onDelete: Cascade)
+
+  @@index([idUsers])
+  @@map("ea_customer_alerts")
+}
+
+model CustomField {
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(256)
+  fieldType      String    @default("input") @map("field_type") @db.VarChar(32)
+  defaultValue   String?   @map("default_value") @db.Text
+  isRequired     Int       @default(0) @map("is_required") @db.TinyInt
+  isDisplayed    Int       @default(1) @map("is_displayed") @db.TinyInt
+  isActive       Int       @default(1) @map("is_active") @db.TinyInt
+  sortOrder      Int       @default(0) @map("sort_order")
+  createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+  updateDatetime DateTime? @updatedAt @map("update_datetime") @db.DateTime(0)
+
+  values CustomerCustomFieldValue[]
+
+  @@map("ea_custom_fields")
+}
+
+model CustomerCustomFieldValue {
+  id             BigInt    @id @default(autoincrement())
+  idUsers        BigInt    @map("id_users")
+  idCustomFields Int       @map("id_custom_fields")
+  value          String?   @db.Text
+  createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+  updateDatetime DateTime? @updatedAt @map("update_datetime") @db.DateTime(0)
+
+  user        User        @relation(fields: [idUsers], references: [id], onDelete: Cascade)
+  customField CustomField @relation(fields: [idCustomFields], references: [id], onDelete: Cascade)
+
+  @@index([idUsers])
+  @@index([idCustomFields])
+  @@map("ea_customer_custom_field_values")
+}
+
+model UserFile {
+  id           BigInt    @id @default(autoincrement())
+  idUsers      BigInt    @map("id_users")
+  filename     String    @db.VarChar(512)
+  originalName String    @map("original_name") @db.VarChar(512)
+  mimeType     String    @map("mime_type") @db.VarChar(128)
+  sizeBytes    Int       @map("file_size") @default(0)
+  createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
+
+  user User @relation(fields: [idUsers], references: [id], onDelete: Cascade)
+
+  @@index([idUsers])
+  @@map("ea_user_files")
 }

@@ -20,9 +20,12 @@ export class CustomerProfileController {
     @Req() req: RequestWithCustomer,
     @Body() body: { first_name?: string; last_name?: string },
   ) {
-    return this.auth.updateCustomerProfile(BigInt(req.customerUser.customerId), {
-      firstName: body.first_name,
-      lastName: body.last_name,
-    });
+    return this.auth.updateCustomerProfile(
+      BigInt(req.customerUser.customerId),
+      {
+        firstName: body.first_name,
+        lastName: body.last_name,
+      },
+    );
   }
 }
