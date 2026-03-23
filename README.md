@@ -19,7 +19,7 @@ pnpm run build
 
 ## Development
 
-Terminal 1 — API (http://localhost:3000):
+Terminal 1 — API (http://localhost:3002):
 
 ```bash
 pnpm --filter @openbook/api dev

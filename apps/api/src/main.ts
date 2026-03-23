@@ -12,7 +12,7 @@ async function bootstrap() {
   });
   app.setGlobalPrefix('api');
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? 3002);
   await app.listen(port);
   console.log(`API listening on http://localhost:${port}/api`);
 }
