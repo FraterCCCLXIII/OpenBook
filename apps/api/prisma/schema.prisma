@@ -1,0 +1,181 @@
+// Easy!Appointments MySQL tables (prefix ea_). Run `pnpm prisma generate` in apps/api.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id               BigInt @id @default(autoincrement())
+  name             String? @db.VarChar(256)
+  slug             String? @db.VarChar(256)
+  isAdmin          Int?    @map("is_admin") @db.TinyInt
+  appointments     Int?
+  customers        Int?
+  services         Int?
+  usersPerm        Int?    @map("users")
+  systemSettings   Int?    @map("system_settings")
+  userSettings     Int?    @map("user_settings")
+  webhooks         Int?
+  blockedPeriods   Int?    @map("blocked_periods")
+
+  staffUsers User[]
+
+  @@map("ea_roles")
+}
+
+model User {
+  id        BigInt  @id @default(autoincrement())
+  firstName String? @map("first_name") @db.VarChar(256)
+  lastName  String? @map("last_name") @db.VarChar(512)
+  email     String? @db.VarChar(512)
+  idRoles   BigInt  @map("id_roles")
+  timezone  String? @db.VarChar(512)
+  language  String? @db.VarChar(512)
+
+  role         Role           @relation(fields: [idRoles], references: [id])
+  userSettings UserSettings?
+  customerAuth CustomerAuth?
+
+  providerAppointments Appointment[] @relation("ApptProvider")
+  customerAppointments Appointment[] @relation("ApptCustomer")
+  serviceLinks         ServiceProvider[]
+
+  @@map("ea_users")
+}
+
+model UserSettings {
+  idUsers BigInt @id @map("id_users")
+
+  username               String? @db.VarChar(256)
+  password               String? @db.VarChar(512)
+  salt                   String? @db.VarChar(512)
+  workingPlan            String? @map("working_plan") @db.Text
+  workingPlanExceptions  String? @map("working_plan_exceptions") @db.Text
+  notifications          Int?    @db.TinyInt
+  googleSync             Int?    @map("google_sync") @db.TinyInt
+  googleToken            String? @map("google_token") @db.Text
+  googleCalendar         String? @map("google_calendar") @db.VarChar(128)
+  syncPastDays           Int?    @map("sync_past_days")
+  syncFutureDays         Int?    @map("sync_future_days")
+
+  user User @relation(fields: [idUsers], references: [id], onDelete: Cascade)
+
+  @@map("ea_user_settings")
+}
+
+model CustomerAuth {
+  id           Int     @id @default(autoincrement())
+  customerId   BigInt  @unique @map("customer_id")
+  email        String  @db.VarChar(512)
+  passwordHash String? @map("password_hash") @db.VarChar(255)
+  status       String  @default("active") @db.VarChar(32)
+
+  user User @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("ea_customer_auth")
+}
+
+model Setting {
+  id    BigInt  @id @default(autoincrement())
+  name  String? @db.VarChar(512)
+  value String? @db.LongText
+
+  @@map("ea_settings")
+}
+
+model ServiceCategory {
+  id          BigInt  @id @default(autoincrement())
+  name        String? @db.VarChar(256)
+  description String? @db.Text
+
+  services Service[]
+
+  @@map("ea_service_categories")
+}
+
+model Service {
+  id                   BigInt  @id @default(autoincrement())
+  name                 String? @db.VarChar(256)
+  duration             Int?
+  price                Decimal? @db.Decimal(10, 2)
+  currency             String? @db.VarChar(32)
+  description          String? @db.Text
+  idServiceCategories  BigInt? @map("id_service_categories")
+  availabilitiesType   String? @map("availabilities_type") @db.VarChar(32)
+  attendantsNumber     Int?    @default(1) @map("attendants_number")
+  isPrivate            Int?    @default(0) @map("is_private") @db.TinyInt
+
+  category ServiceCategory? @relation(fields: [idServiceCategories], references: [id], onDelete: SetNull)
+  providers ServiceProvider[]
+  appointments Appointment[]
+
+  @@map("ea_services")
+}
+
+model ServiceProvider {
+  idUsers    BigInt @map("id_users")
+  idServices BigInt @map("id_services")
+
+  user    User    @relation(fields: [idUsers], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [idServices], references: [id], onDelete: Cascade)
+
+  @@id([idUsers, idServices])
+  @@map("ea_services_providers")
+}
+
+model Appointment {
+  id                 BigInt    @id @default(autoincrement())
+  bookDatetime       DateTime? @map("book_datetime") @db.DateTime(0)
+  startDatetime      DateTime? @map("start_datetime") @db.DateTime(0)
+  endDatetime        DateTime? @map("end_datetime") @db.DateTime(0)
+  notes              String?   @db.Text
+  hash               String?   @db.Text
+  isUnavailability   Int       @default(0) @map("is_unavailability") @db.TinyInt
+  idUsersProvider    BigInt?   @map("id_users_provider")
+  idUsersCustomer    BigInt?   @map("id_users_customer")
+  idServices         BigInt?   @map("id_services")
+
+  provider User?   @relation("ApptProvider", fields: [idUsersProvider], references: [id], onDelete: Cascade)
+  customer User?   @relation("ApptCustomer", fields: [idUsersCustomer], references: [id], onDelete: Cascade)
+  service  Service? @relation(fields: [idServices], references: [id], onDelete: Cascade)
+
+  @@index([idUsersProvider])
+  @@index([startDatetime])
+  @@map("ea_appointments")
+}
+
+model BlockedPeriod {
+  id              Int       @id @default(autoincrement())
+  createDatetime  DateTime? @map("create_datetime") @db.DateTime(0)
+  updateDatetime  DateTime? @map("update_datetime") @db.DateTime(0)
+  name            String?   @db.VarChar(256)
+  startDatetime   DateTime? @map("start_datetime") @db.DateTime(0)
+  endDatetime     DateTime? @map("end_datetime") @db.DateTime(0)
+  notes           String?   @db.Text
+
+  @@map("ea_blocked_periods")
+}
+
+// OpenBook-native audit trail (not from legacy PHP ea_*).
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  action    String?  @db.VarChar(512)
+  metadata  String?  @db.Text
+
+  @@map("openbook_audit_logs")
+}
+
+/// Stripe webhook idempotency (event id is unique per delivery).
+model StripeWebhookEvent {
+  id         String   @id @db.VarChar(255)
+  eventType  String?  @map("event_type") @db.VarChar(128)
+  receivedAt DateTime @default(now()) @map("received_at") @db.DateTime(0)
+
+  @@map("openbook_stripe_events")
+}

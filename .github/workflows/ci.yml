@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: openbook
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DATABASE_URL: mysql://root:test@127.0.0.1:3306/openbook
+      JWT_SECRET: ci-test-jwt-secret
+      CI: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma schema + seed
+        working-directory: apps/api
+        run: |
+          pnpm exec prisma db push
+          pnpm exec prisma db seed
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: API + Playwright
+        run: |
+          cd apps/api && node dist/src/main.js &
+          sleep 5
+          curl -sf http://127.0.0.1:3002/api/health
+          curl -sf http://127.0.0.1:3002/api/settings/public | grep -q OpenBook
+          cd apps/web && pnpm exec playwright test

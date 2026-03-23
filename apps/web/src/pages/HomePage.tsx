@@ -11,19 +11,37 @@ async function fetchHealth() {
   return healthResponseSchema.parse(data);
 }
 
+async function fetchPublicSettings() {
+  const res = await fetch('/api/settings/public');
+  if (!res.ok) {
+    throw new Error(`Public settings failed: ${res.status}`);
+  }
+  return res.json() as Promise<Record<string, string>>;
+}
+
 export function HomePage() {
   const health = useQuery({
     queryKey: ['health'],
     queryFn: fetchHealth,
   });
 
+  const publicSettings = useQuery({
+    queryKey: ['settings', 'public'],
+    queryFn: fetchPublicSettings,
+  });
+
+  const companyName = publicSettings.data?.company_name?.trim();
+
   return (
     <div className="space-y-10">
       <section className="rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950 p-8">
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-50">Schedule appointments</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-zinc-50">
+          {companyName || 'Schedule appointments'}
+        </h1>
         <p className="mt-2 max-w-2xl text-zinc-400">
-          This is the new React app. Booking, customer accounts, and staff tools will call the Nest API as we port
-          features from the PHP installation.
+          {companyName
+            ? 'Book online or sign in to manage your appointments.'
+            : 'This is the new React app. Booking, customer accounts, and staff tools will call the Nest API as we port features from the PHP installation.'}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link

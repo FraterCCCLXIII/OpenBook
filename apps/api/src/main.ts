@@ -1,13 +1,27 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
 
   app.use(helmet());
+  app.use(cookieParser());
+  const defaultOrigins = [
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
+    // Vite preview (Playwright CI + local `CI=true`)
+    'http://127.0.0.1:5174',
+    'http://localhost:5174',
+  ];
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()) ?? true,
+    origin:
+      process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()) ??
+      defaultOrigins,
     credentials: true,
   });
   app.setGlobalPrefix('api');
