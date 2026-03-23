@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { apiJson } from '../../../lib/api';
 
@@ -20,6 +20,14 @@ const NAV = [
   { path: 'service-areas', label: 'Service areas' },
 ] as const;
 
+const settingsNavLinkClass = ({ isActive }: { isActive: boolean }) =>
+  [
+    'block rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+    isActive
+      ? 'bg-zinc-800 text-zinc-50'
+      : 'text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100',
+  ].join(' ');
+
 export function StaffSettingsLayout() {
   return (
     <div className="space-y-6">
@@ -30,18 +38,28 @@ export function StaffSettingsLayout() {
           <code className="text-zinc-600">PATCH /api/staff/settings/section/:section</code>.
         </p>
       </div>
-      <div className="flex flex-wrap gap-2 border-b border-zinc-800 pb-4">
-        {NAV.map((n) => (
-          <Link
-            key={n.path}
-            to={`/staff/settings/${n.path}`}
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:border-emerald-600"
-          >
-            {n.label}
-          </Link>
-        ))}
+      <div className="flex flex-col gap-8 md:flex-row md:items-start">
+        <nav
+          className="w-full shrink-0 border-b border-zinc-800 pb-4 md:w-56 md:border-b-0 md:border-r md:pb-0 md:pr-6"
+          aria-label="Settings sections"
+        >
+          <ul className="flex flex-col gap-0.5">
+            {NAV.map((n) => (
+              <li key={n.path}>
+                <NavLink
+                  to={`/staff/settings/${n.path}`}
+                  className={settingsNavLinkClass}
+                >
+                  {n.label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="min-w-0 flex-1">
+          <Outlet />
+        </div>
       </div>
-      <Outlet />
     </div>
   );
 }
