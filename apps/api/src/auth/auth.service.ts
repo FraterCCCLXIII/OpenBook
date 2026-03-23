@@ -323,12 +323,27 @@ export class AuthService {
       email: auth.email,
       firstName: u?.firstName ?? null,
       lastName: u?.lastName ?? null,
+      phoneNumber: u?.phoneNumber ?? null,
+      address: u?.address ?? null,
+      city: u?.city ?? null,
+      state: u?.state ?? null,
+      zipCode: u?.zipCode ?? null,
+      timezone: u?.timezone ?? null,
     };
   }
 
   async updateCustomerProfile(
     customerId: bigint,
-    body: { firstName?: string; lastName?: string },
+    body: {
+      firstName?: string;
+      lastName?: string;
+      phoneNumber?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      zipCode?: string;
+      timezone?: string;
+    },
   ) {
     this.ensureDb();
     const auth = await this.prisma.customerAuth.findFirst({
@@ -337,17 +352,19 @@ export class AuthService {
     if (!auth) {
       throw new UnauthorizedException();
     }
+    const trim = (v?: string) =>
+      v !== undefined ? v.trim() || null : undefined;
     const user = await this.prisma.user.update({
       where: { id: customerId },
       data: {
-        firstName:
-          body.firstName !== undefined
-            ? body.firstName.trim() || null
-            : undefined,
-        lastName:
-          body.lastName !== undefined
-            ? body.lastName.trim() || null
-            : undefined,
+        firstName: trim(body.firstName),
+        lastName: trim(body.lastName),
+        phoneNumber: trim(body.phoneNumber),
+        address: trim(body.address),
+        city: trim(body.city),
+        state: trim(body.state),
+        zipCode: trim(body.zipCode),
+        timezone: trim(body.timezone),
       },
     });
     return {
@@ -355,6 +372,12 @@ export class AuthService {
       email: auth.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      phoneNumber: user.phoneNumber,
+      address: user.address,
+      city: user.city,
+      state: user.state,
+      zipCode: user.zipCode,
+      timezone: user.timezone,
     };
   }
 
@@ -571,4 +594,10 @@ export type CustomerMeResponse = {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  phoneNumber: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  timezone: string | null;
 };

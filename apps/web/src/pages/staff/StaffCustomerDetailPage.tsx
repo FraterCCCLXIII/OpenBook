@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { apiJson } from '../../lib/api';
 
 type Customer = {
@@ -28,15 +28,21 @@ export function StaffCustomerDetailPage() {
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['staff', 'customers'] });
+      void qc.invalidateQueries({ queryKey: ['staff', 'customers', id] });
+    },
+  });
+
+  const deleteM = useMutation({
+    mutationFn: () =>
+      apiJson(`/api/staff/customers/${encodeURIComponent(id ?? '')}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['staff', 'customers'] });
       void navigate('/staff/customers');
     },
   });
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <Link to="/staff/customers" className="text-sm text-emerald-500 hover:underline">
-        ← Customers
-      </Link>
       {q.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
       {q.isError && <p className="text-sm text-red-400">{(q.error as Error).message}</p>}
       {q.isSuccess && (
@@ -80,13 +86,25 @@ export function StaffCustomerDetailPage() {
               className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
             />
           </label>
-          <button
-            type="submit"
-            disabled={save.isPending}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
-          >
-            {save.isPending ? 'Saving…' : 'Save'}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="submit"
+              disabled={save.isPending}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
+            >
+              {save.isPending ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              disabled={deleteM.isPending}
+              onClick={() => {
+                if (confirm('Delete this customer?')) deleteM.mutate();
+              }}
+              className="rounded-lg border border-red-900/50 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-950/40 disabled:opacity-50"
+            >
+              {deleteM.isPending ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
         </form>
       )}
     </div>

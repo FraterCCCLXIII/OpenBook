@@ -21,14 +21,14 @@ import { useAuth } from './auth/AuthContext';
 import { StaffLoginPage } from './pages/staff/StaffLoginPage';
 import { StaffDashboardPage } from './pages/staff/StaffDashboardPage';
 import { StaffCustomerDetailPage } from './pages/staff/StaffCustomerDetailPage';
+import { StaffCustomersLayout } from './pages/staff/StaffCustomersLayout';
 import { StaffProviderDetailPage } from './pages/staff/StaffProviderDetailPage';
+import { StaffProvidersLayout } from './pages/staff/StaffProvidersLayout';
 import { StaffProviderBookingDetailPage } from './pages/staff/StaffProviderBookingDetailPage';
 import {
   StaffAdminsPage,
-  StaffCustomersPage,
   StaffLogsPage,
   StaffProviderBookingsPage,
-  StaffProvidersPage,
   StaffSecretariesPage,
   StaffServiceCategoriesPage,
   StaffServicesPage,
@@ -98,14 +98,16 @@ export default function App() {
           <Route element={<StaffShell />}>
             <Route path="/staff/dashboard" element={<StaffDashboardPage />} />
             <Route path="/staff/calendar" element={<StaffCalendarPage />} />
-            <Route path="/staff/customers/:id" element={<StaffCustomerDetailPage />} />
-            <Route path="/staff/customers" element={<StaffCustomersPage />} />
+            <Route path="/staff/customers" element={<StaffCustomersLayout />}>
+              <Route path=":id" element={<StaffCustomerDetailPage />} />
+            </Route>
             <Route path="/staff/billing" element={<StaffBillingPage />} />
             <Route path="/staff/logs" element={<StaffLogsPage />} />
             <Route path="/staff/services" element={<StaffServicesPage />} />
             <Route path="/staff/service-categories" element={<StaffServiceCategoriesPage />} />
-            <Route path="/staff/providers/:id" element={<StaffProviderDetailPage />} />
-            <Route path="/staff/providers" element={<StaffProvidersPage />} />
+            <Route path="/staff/providers" element={<StaffProvidersLayout />}>
+              <Route path=":id" element={<StaffProviderDetailPage />} />
+            </Route>
             <Route path="/staff/secretaries" element={<StaffSecretariesPage />} />
             <Route path="/staff/admins" element={<StaffAdminsPage />} />
             <Route path="/staff/forms" element={<StaffFormsPage />} />

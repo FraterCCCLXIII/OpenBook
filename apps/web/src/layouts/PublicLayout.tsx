@@ -73,7 +73,7 @@ export function PublicLayout() {
       'block rounded-md px-3 py-2 text-sm transition-colors',
       isActive
         ? 'bg-slate-100 font-medium text-slate-900'
-        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
     ].join(' ');
 
   return (
@@ -238,7 +238,7 @@ export function PublicLayout() {
                         type="button"
                         role="menuitem"
                         onClick={() => void handleLogout()}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                       >
                         <LogOut className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
                         {t('log_out')}

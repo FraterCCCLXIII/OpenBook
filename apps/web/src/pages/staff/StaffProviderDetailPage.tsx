@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { apiJson } from '../../lib/api';
 
 type ProviderDetail = {
@@ -76,14 +76,9 @@ export function StaffProviderDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to="/staff/providers" className="text-sm text-emerald-500 hover:underline">
-          ← Providers
-        </Link>
-        <h1 className="text-2xl font-semibold text-zinc-50">
-          {q.data ? [q.data.firstName, q.data.lastName].filter(Boolean).join(' ') || 'Provider' : '…'}
-        </h1>
-      </div>
+      <h1 className="text-2xl font-semibold text-zinc-50">
+        {q.data ? [q.data.firstName, q.data.lastName].filter(Boolean).join(' ') || 'Provider' : '…'}
+      </h1>
 
       {q.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
       {q.isError && <p className="text-sm text-red-400">{(q.error as Error).message}</p>}

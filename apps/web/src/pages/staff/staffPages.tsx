@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { StaffMasterDetailLayout } from '../../components/staff/StaffMasterDetailLayout';
+import {
+  StaffRecordListPanel,
+  StaffRecordPlaceholder,
+} from '../../components/staff/StaffRecordListPanel';
 import { apiJson } from '../../lib/api';
 
 export { StaffCalendarPage } from './StaffCalendarPage';
@@ -11,177 +16,6 @@ function MessageBlock({ title, children }: { title: string; children: React.Reac
       <h1 className="text-2xl font-semibold text-zinc-50">{title}</h1>
       {children}
     </div>
-  );
-}
-
-type CustomerRow = { id: string; firstName: string | null; lastName: string | null; email: string | null };
-
-function EditCustomerModal({ customer, onClose }: { customer: CustomerRow; onClose: () => void }) {
-  const qc = useQueryClient();
-  const [first, setFirst] = useState(customer.firstName ?? '');
-  const [last, setLast] = useState(customer.lastName ?? '');
-  const [email, setEmail] = useState(customer.email ?? '');
-
-  const m = useMutation({
-    mutationFn: (body: { first_name: string; last_name: string; email: string }) =>
-      apiJson(`/api/staff/customers/${customer.id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['staff', 'customers'] });
-      onClose();
-    },
-  });
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-xl">
-        <h2 className="mb-4 text-lg font-semibold text-zinc-100">Edit Customer</h2>
-        <form
-          onSubmit={(e) => { e.preventDefault(); m.mutate({ first_name: first, last_name: last, email }); }}
-          className="space-y-3"
-        >
-          {[
-            { label: 'First name', value: first, set: setFirst, type: 'text' },
-            { label: 'Last name', value: last, set: setLast, type: 'text' },
-            { label: 'Email', value: email, set: setEmail, type: 'email', required: true },
-          ].map(({ label, value, set, type, required }) => (
-            <label key={label} className="block space-y-1">
-              <span className="text-xs uppercase text-zinc-500">{label}</span>
-              <input
-                type={type}
-                value={value}
-                onChange={(e) => set(e.target.value)}
-                required={required}
-                className="w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100"
-              />
-            </label>
-          ))}
-          {m.isError && <p className="text-xs text-red-400">{(m.error as Error).message}</p>}
-          <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={m.isPending}
-              className="flex-1 rounded-lg bg-emerald-600 py-2 text-sm text-white hover:bg-emerald-500 disabled:opacity-50">
-              {m.isPending ? 'Saving…' : 'Save'}
-            </button>
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-export function StaffCustomersPage() {
-  const qc = useQueryClient();
-  const [showNew, setShowNew] = useState(false);
-  const [newFirst, setNewFirst] = useState('');
-  const [newLast, setNewLast] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [editing, setEditing] = useState<CustomerRow | null>(null);
-
-  const q = useQuery({
-    queryKey: ['staff', 'customers'],
-    queryFn: () =>
-      apiJson<{ items: CustomerRow[] }>('/api/staff/customers'),
-  });
-
-  const createM = useMutation({
-    mutationFn: (body: { first_name: string; last_name: string; email: string }) =>
-      apiJson('/api/staff/customers', { method: 'POST', body: JSON.stringify(body) }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['staff', 'customers'] });
-      setShowNew(false);
-      setNewFirst(''); setNewLast(''); setNewEmail('');
-    },
-  });
-
-  const deleteM = useMutation({
-    mutationFn: (id: string) =>
-      apiJson(`/api/staff/customers/${id}`, { method: 'DELETE' }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['staff', 'customers'] }),
-  });
-
-  return (
-    <MessageBlock title="Customers">
-      {editing && <EditCustomerModal customer={editing} onClose={() => setEditing(null)} />}
-
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setShowNew((v) => !v)}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-        >
-          + New Customer
-        </button>
-      </div>
-
-      {showNew && (
-        <form
-          onSubmit={(e) => { e.preventDefault(); createM.mutate({ first_name: newFirst, last_name: newLast, email: newEmail }); }}
-          className="flex flex-wrap gap-2 rounded-lg border border-zinc-700 bg-zinc-900/60 p-4"
-        >
-          <input value={newFirst} onChange={(e) => setNewFirst(e.target.value)} placeholder="First name"
-            className="flex-1 min-w-[120px] rounded border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100" />
-          <input value={newLast} onChange={(e) => setNewLast(e.target.value)} placeholder="Last name"
-            className="flex-1 min-w-[120px] rounded border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100" />
-          <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Email *" required type="email"
-            className="flex-1 min-w-[180px] rounded border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100" />
-          <button type="submit" disabled={createM.isPending}
-            className="rounded bg-emerald-600 px-4 py-1.5 text-sm text-white hover:bg-emerald-500 disabled:opacity-50">
-            {createM.isPending ? 'Saving…' : 'Save'}
-          </button>
-          {createM.isError && <p className="w-full text-xs text-red-400">{(createM.error as Error).message}</p>}
-        </form>
-      )}
-
-      {q.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
-      {q.isError && <p className="text-sm text-red-400">{(q.error as Error).message}</p>}
-      {q.isSuccess && (
-        <div className="overflow-x-auto rounded-lg border border-zinc-800">
-          <table className="w-full text-left text-sm text-zinc-300">
-            <thead className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase text-zinc-500">
-              <tr>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Email</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {q.data.items.map((c) => (
-                <tr key={c.id} className="border-b border-zinc-800/80">
-                  <td className="px-3 py-2">
-                    <Link
-                      to={`/staff/customers/${c.id}`}
-                      className="text-emerald-400 hover:underline"
-                    >
-                      {[c.firstName, c.lastName].filter(Boolean).join(' ') || '—'}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2 text-zinc-500">{c.email ?? '—'}</td>
-                  <td className="px-3 py-2 text-right flex gap-2 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setEditing(c)}
-                      className="rounded px-2 py-0.5 text-xs text-blue-400 hover:bg-blue-900/30"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { if (confirm('Delete this customer?')) deleteM.mutate(c.id); }}
-                      className="rounded px-2 py-0.5 text-xs text-red-400 hover:bg-red-900/30"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </MessageBlock>
   );
 }
 
@@ -343,121 +177,344 @@ export function StaffLogsPage() {
   );
 }
 
+type ServiceRow = {
+  id: string;
+  name: string | null;
+  duration: number | null;
+  price: string | null;
+};
+
+function filterServices(items: ServiceRow[], q: string): ServiceRow[] {
+  const s = q.trim().toLowerCase();
+  if (!s) return items;
+  return items.filter((item) => {
+    const name = (item.name ?? '').toLowerCase();
+    const meta = [item.duration != null ? `${item.duration} min` : '', item.price ?? '']
+      .join(' ')
+      .toLowerCase();
+    return name.includes(s) || meta.includes(s);
+  });
+}
+
 export function StaffServicesPage() {
   const q = useQuery({
     queryKey: ['staff', 'services'],
     queryFn: () =>
-      apiJson<{
-        items: Array<{ id: string; name: string | null; duration: number | null; price: string | null }>;
-      }>('/api/staff/services'),
+      apiJson<{ items: ServiceRow[] }>('/api/staff/services'),
   });
 
-  return (
-    <MessageBlock title="Services">
-      {q.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
-      {q.isError && <p className="text-sm text-red-400">{(q.error as Error).message}</p>}
-      {q.isSuccess && (
-        <ul className="space-y-2">
-          {q.data.items.map((s) => (
-            <li key={s.id} className="rounded border border-zinc-800 px-3 py-2 text-sm">
-              <span className="text-zinc-100">{s.name ?? `Service ${s.id}`}</span>
-              <span className="ml-2 text-zinc-500">
-                {s.duration != null ? `${s.duration} min` : ''}
-                {s.price != null ? ` · ${s.price}` : ''}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </MessageBlock>
+  const [filter, setFilter] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const filtered = useMemo(
+    () => (q.isSuccess ? filterServices(q.data.items, filter) : []),
+    [q.isSuccess, q.data, filter],
   );
+
+  const selected = q.isSuccess ? q.data.items.find((s) => s.id === selectedId) : undefined;
+
+  return (
+    <StaffMasterDetailLayout
+      panel={
+        <StaffRecordListPanel
+          id="filter-services"
+          title="Services"
+          searchValue={filter}
+          onSearchChange={setFilter}
+        >
+          {q.isPending && (
+            <p className="px-4 py-6 text-sm text-zinc-500">Loading…</p>
+          )}
+          {q.isError && (
+            <p className="px-4 py-6 text-sm text-red-400">{(q.error as Error).message}</p>
+          )}
+          {q.isSuccess && filtered.length === 0 && (
+            <p className="px-4 py-6 text-sm text-zinc-500">No matching services.</p>
+          )}
+          {q.isSuccess && filtered.length > 0 && (
+            <ul className="divide-y divide-zinc-800">
+              {filtered.map((s) => {
+                const isSelected = selectedId === s.id;
+                const meta = [
+                  s.duration != null ? `${s.duration} min` : null,
+                  s.price != null ? s.price : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(s.id)}
+                      className={[
+                        'w-full px-3.5 py-3.5 text-left transition-colors',
+                        isSelected
+                          ? 'border-l-[3px] border-emerald-500 bg-zinc-800/90 pl-[calc(0.875rem-3px)]'
+                          : 'hover:bg-zinc-900/80',
+                      ].join(' ')}
+                      aria-pressed={isSelected}
+                    >
+                      <strong className="block text-sm font-semibold text-zinc-100">
+                        {s.name ?? `Service ${s.id}`}
+                      </strong>
+                      {meta && (
+                        <span className="mt-1 block text-xs leading-snug text-zinc-500">
+                          {meta}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </StaffRecordListPanel>
+      }
+      detail={
+        selected ? (
+          <div className="mx-auto max-w-lg space-y-4">
+            <h2 className="text-xl font-semibold text-zinc-50">
+              {selected.name ?? `Service ${selected.id}`}
+            </h2>
+            <dl className="space-y-2 text-sm text-zinc-300">
+              <div className="flex justify-between gap-4 border-b border-zinc-800 py-2">
+                <dt className="text-zinc-500">Duration</dt>
+                <dd>{selected.duration != null ? `${selected.duration} min` : '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-zinc-800 py-2">
+                <dt className="text-zinc-500">Price</dt>
+                <dd>{selected.price ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-zinc-500">ID</dt>
+                <dd className="font-mono text-xs text-zinc-400">{selected.id}</dd>
+              </div>
+            </dl>
+          </div>
+        ) : (
+          <StaffRecordPlaceholder message="Select a service from the list." />
+        )
+      }
+    />
+  );
+}
+
+type CategoryRow = { id: string; name: string | null; description: string | null };
+
+function filterCategories(items: CategoryRow[], q: string): CategoryRow[] {
+  const s = q.trim().toLowerCase();
+  if (!s) return items;
+  return items.filter((c) => {
+    const name = (c.name ?? '').toLowerCase();
+    const desc = (c.description ?? '').toLowerCase();
+    return name.includes(s) || desc.includes(s);
+  });
 }
 
 export function StaffServiceCategoriesPage() {
   const q = useQuery({
     queryKey: ['staff', 'service-categories'],
     queryFn: () =>
-      apiJson<{ items: Array<{ id: string; name: string | null; description: string | null }> }>(
-        '/api/staff/service-categories',
-      ),
+      apiJson<{ items: CategoryRow[] }>('/api/staff/service-categories'),
   });
 
+  const [filter, setFilter] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const filtered = useMemo(
+    () => (q.isSuccess ? filterCategories(q.data.items, filter) : []),
+    [q.isSuccess, q.data, filter],
+  );
+
+  const selected = q.isSuccess ? q.data.items.find((c) => c.id === selectedId) : undefined;
+
   return (
-    <MessageBlock title="Service categories">
-      {q.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
-      {q.isError && <p className="text-sm text-red-400">{(q.error as Error).message}</p>}
-      {q.isSuccess && (
-        <ul className="space-y-2">
-          {q.data.items.map((c) => (
-            <li key={c.id} className="rounded border border-zinc-800 px-3 py-2 text-sm text-zinc-200">
-              {c.name ?? '—'}
-              {c.description && <p className="text-xs text-zinc-500">{c.description}</p>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </MessageBlock>
+    <StaffMasterDetailLayout
+      panel={
+        <StaffRecordListPanel
+          id="filter-service-categories"
+          title="Service categories"
+          searchValue={filter}
+          onSearchChange={setFilter}
+        >
+          {q.isPending && (
+            <p className="px-4 py-6 text-sm text-zinc-500">Loading…</p>
+          )}
+          {q.isError && (
+            <p className="px-4 py-6 text-sm text-red-400">{(q.error as Error).message}</p>
+          )}
+          {q.isSuccess && filtered.length === 0 && (
+            <p className="px-4 py-6 text-sm text-zinc-500">No matching categories.</p>
+          )}
+          {q.isSuccess && filtered.length > 0 && (
+            <ul className="divide-y divide-zinc-800">
+              {filtered.map((c) => {
+                const isSelected = selectedId === c.id;
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(c.id)}
+                      className={[
+                        'w-full px-3.5 py-3.5 text-left transition-colors',
+                        isSelected
+                          ? 'border-l-[3px] border-emerald-500 bg-zinc-800/90 pl-[calc(0.875rem-3px)]'
+                          : 'hover:bg-zinc-900/80',
+                      ].join(' ')}
+                      aria-pressed={isSelected}
+                    >
+                      <strong className="block text-sm font-semibold text-zinc-100">
+                        {c.name ?? '—'}
+                      </strong>
+                      {c.description && (
+                        <span className="mt-1 line-clamp-2 block text-xs leading-snug text-zinc-500">
+                          {c.description}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </StaffRecordListPanel>
+      }
+      detail={
+        selected ? (
+          <div className="mx-auto max-w-lg space-y-4">
+            <h2 className="text-xl font-semibold text-zinc-50">{selected.name ?? '—'}</h2>
+            {selected.description ? (
+              <p className="text-sm leading-relaxed text-zinc-400">{selected.description}</p>
+            ) : (
+              <p className="text-sm text-zinc-500">No description.</p>
+            )}
+            <p className="font-mono text-xs text-zinc-600">ID: {selected.id}</p>
+          </div>
+        ) : (
+          <StaffRecordPlaceholder message="Select a category from the list." />
+        )
+      }
+    />
   );
 }
 
-function TeamListPage({ roleSlug, title }: { roleSlug: string; title: string }) {
+type TeamRow = { id: string; displayName: string; email: string | null };
+
+function filterTeam(items: TeamRow[], q: string): TeamRow[] {
+  const s = q.trim().toLowerCase();
+  if (!s) return items;
+  return items.filter(
+    (u) =>
+      u.displayName.toLowerCase().includes(s) ||
+      (u.email ?? '').toLowerCase().includes(s),
+  );
+}
+
+function StaffTeamListPage({
+  roleSlug,
+  title,
+  filterId,
+}: {
+  roleSlug: string;
+  title: string;
+  filterId: string;
+}) {
   const q = useQuery({
     queryKey: ['staff', 'team', roleSlug],
     queryFn: () =>
-      apiJson<{ items: Array<{ id: string; displayName: string; email: string | null }> }>(
-        `/api/staff/team/${roleSlug}`,
-      ),
+      apiJson<{ items: TeamRow[] }>(`/api/staff/team/${roleSlug}`),
   });
 
+  const [filter, setFilter] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const filtered = useMemo(
+    () => (q.isSuccess ? filterTeam(q.data.items, filter) : []),
+    [q.isSuccess, q.data, filter],
+  );
+
+  const selected = q.isSuccess ? q.data.items.find((u) => u.id === selectedId) : undefined;
+
   return (
-    <MessageBlock title={title}>
-      {q.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
-      {q.isError && <p className="text-sm text-red-400">{(q.error as Error).message}</p>}
-      {q.isSuccess && (
-        <ul className="space-y-2">
-          {q.data.items.map((u) => (
-            <li key={u.id} className="rounded border border-zinc-800 px-3 py-2 text-sm text-zinc-200">
-              {u.displayName}
-              {u.email && <span className="ml-2 text-zinc-500">{u.email}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </MessageBlock>
+    <StaffMasterDetailLayout
+      panel={
+        <StaffRecordListPanel
+          id={filterId}
+          title={title}
+          searchValue={filter}
+          onSearchChange={setFilter}
+        >
+          {q.isPending && (
+            <p className="px-4 py-6 text-sm text-zinc-500">Loading…</p>
+          )}
+          {q.isError && (
+            <p className="px-4 py-6 text-sm text-red-400">{(q.error as Error).message}</p>
+          )}
+          {q.isSuccess && filtered.length === 0 && (
+            <p className="px-4 py-6 text-sm text-zinc-500">No matching users.</p>
+          )}
+          {q.isSuccess && filtered.length > 0 && (
+            <ul className="divide-y divide-zinc-800">
+              {filtered.map((u) => {
+                const isSelected = selectedId === u.id;
+                return (
+                  <li key={u.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(u.id)}
+                      className={[
+                        'w-full px-3.5 py-3.5 text-left transition-colors',
+                        isSelected
+                          ? 'border-l-[3px] border-emerald-500 bg-zinc-800/90 pl-[calc(0.875rem-3px)]'
+                          : 'hover:bg-zinc-900/80',
+                      ].join(' ')}
+                      aria-pressed={isSelected}
+                    >
+                      <strong className="block text-sm font-semibold text-zinc-100">
+                        {u.displayName}
+                      </strong>
+                      {u.email && (
+                        <span className="mt-1 block text-xs leading-snug text-zinc-500">
+                          {u.email}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </StaffRecordListPanel>
+      }
+      detail={
+        selected ? (
+          <div className="mx-auto max-w-lg space-y-4">
+            <h2 className="text-xl font-semibold text-zinc-50">{selected.displayName}</h2>
+            <dl className="space-y-2 text-sm text-zinc-300">
+              <div className="flex justify-between gap-4 border-b border-zinc-800 py-2">
+                <dt className="text-zinc-500">Email</dt>
+                <dd>{selected.email ?? '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-zinc-500">ID</dt>
+                <dd className="font-mono text-xs text-zinc-400">{selected.id}</dd>
+              </div>
+            </dl>
+          </div>
+        ) : (
+          <StaffRecordPlaceholder message="Select a user from the list." />
+        )
+      }
+    />
   );
 }
 
-export function StaffProvidersPage() {
-  const q = useQuery({
-    queryKey: ['staff', 'team', 'provider'],
-    queryFn: () =>
-      apiJson<{ items: Array<{ id: string; displayName: string; email: string | null }> }>(
-        '/api/staff/team/provider',
-      ),
-  });
-
-  return (
-    <MessageBlock title="Providers">
-      {q.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
-      {q.isError && <p className="text-sm text-red-400">{(q.error as Error).message}</p>}
-      {q.isSuccess && (
-        <ul className="space-y-2">
-          {q.data.items.map((u) => (
-            <li key={u.id} className="rounded border border-zinc-800 px-3 py-2 text-sm text-zinc-200 flex items-center justify-between">
-              <span>{u.displayName}{u.email && <span className="ml-2 text-zinc-500">{u.email}</span>}</span>
-              <Link to={`/staff/providers/${u.id}`} className="text-xs text-emerald-400 hover:underline">
-                Edit →
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </MessageBlock>
-  );
-}
-
-export const StaffSecretariesPage = () => <TeamListPage roleSlug="secretary" title="Secretaries" />;
-export const StaffAdminsPage = () => <TeamListPage roleSlug="admin" title="Administrators" />;
+export const StaffSecretariesPage = () => (
+  <StaffTeamListPage roleSlug="secretary" title="Secretaries" filterId="filter-secretaries" />
+);
+export const StaffAdminsPage = () => (
+  <StaffTeamListPage roleSlug="admin" title="Administrators" filterId="filter-admins" />
+);
 
 export function StaffSettingsPage() {
   return (

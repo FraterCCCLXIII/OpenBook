@@ -283,6 +283,7 @@ export function BookWizard() {
           {([1, 2, 3, 4, 5] as const).map((s) => (
             <div
               key={s}
+              id={`step-${s}`}
               className={[
                 'book-step',
                 step === s ? 'active-step' : '',
@@ -291,7 +292,7 @@ export function BookWizard() {
                 .filter(Boolean)
                 .join(' ')}
               onClick={() => goToStep(s)}
-              title={STEP_LABELS[s - 1]}
+              data-tippy-content={STEP_LABELS[s - 1]}
               aria-label={STEP_LABELS[s - 1]}
               aria-current={step === s ? 'step' : undefined}
             >

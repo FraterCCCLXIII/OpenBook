@@ -36,19 +36,19 @@
             <ul class="booking-tab-list" id="account-tabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="booking-tab active" id="profile-tab" data-bs-toggle="pill"
-                            data-bs-target="#profile" type="button" role="tab">
+                            data-bs-target="#profile" type="button" role="tab" aria-selected="true">
                         Profile
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="booking-tab" id="security-tab" data-bs-toggle="pill" data-bs-target="#security"
-                            type="button" role="tab">
+                            type="button" role="tab" aria-selected="false" tabindex="-1">
                         Security
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="booking-tab" id="billing-tab" data-bs-toggle="pill" data-bs-target="#billing"
-                            type="button" role="tab">
+                            type="button" role="tab" aria-selected="false" tabindex="-1">
                         Billing
                     </button>
                 </li>
@@ -56,7 +56,7 @@
         </div>
 
         <div class="tab-content mt-6" id="account-tabs-content">
-            <div class="tab-pane fade show active" id="profile" role="tabpanel">
+            <div class="tab-pane fade show active" id="profile" role="tabpanel" aria-labelledby="profile-tab">
                 <div class="row frame-content">
                     <div class="col-12 mx-auto px-0">
                         <h5 class="mb-3">Profile Details</h5>
@@ -130,7 +130,7 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="security" role="tabpanel">
+            <div class="tab-pane fade" id="security" role="tabpanel" aria-labelledby="security-tab">
                 <div class="row frame-content">
                     <div class="col-12 mx-auto px-0">
                         <h5 class="mb-3">Update Email</h5>
@@ -173,7 +173,7 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="billing" role="tabpanel">
+            <div class="tab-pane fade" id="billing" role="tabpanel" aria-labelledby="billing-tab">
                 <div class="row frame-content">
                     <div class="col-12 mx-auto px-0">
                         <?php if (vars('stripe_enabled') && !empty(vars('customer')['stripe_customer_id'])): ?>

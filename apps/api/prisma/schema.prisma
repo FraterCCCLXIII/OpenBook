@@ -29,13 +29,18 @@ model Role {
 }
 
 model User {
-  id        BigInt  @id @default(autoincrement())
-  firstName String? @map("first_name") @db.VarChar(256)
-  lastName  String? @map("last_name") @db.VarChar(512)
-  email     String? @db.VarChar(512)
-  idRoles   BigInt  @map("id_roles")
-  timezone  String? @db.VarChar(512)
-  language  String? @db.VarChar(512)
+  id          BigInt  @id @default(autoincrement())
+  firstName   String? @map("first_name") @db.VarChar(256)
+  lastName    String? @map("last_name") @db.VarChar(512)
+  email       String? @db.VarChar(512)
+  idRoles     BigInt  @map("id_roles")
+  timezone    String? @db.VarChar(512)
+  language    String? @db.VarChar(512)
+  phoneNumber String? @map("phone_number") @db.VarChar(128)
+  address     String? @db.VarChar(256)
+  city        String? @db.VarChar(256)
+  state       String? @db.VarChar(128)
+  zipCode     String? @map("zip_code") @db.VarChar(64)
 
   role         Role           @relation(fields: [idRoles], references: [id])
   userSettings UserSettings?

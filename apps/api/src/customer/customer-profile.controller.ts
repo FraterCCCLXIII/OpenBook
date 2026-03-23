@@ -18,13 +18,29 @@ export class CustomerProfileController {
   @Patch()
   async patch(
     @Req() req: RequestWithCustomer,
-    @Body() body: { first_name?: string; last_name?: string },
+    @Body()
+    body: {
+      first_name?: string;
+      last_name?: string;
+      phone_number?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      zip_code?: string;
+      timezone?: string;
+    },
   ) {
     return this.auth.updateCustomerProfile(
       BigInt(req.customerUser.customerId),
       {
         firstName: body.first_name,
         lastName: body.last_name,
+        phoneNumber: body.phone_number,
+        address: body.address,
+        city: body.city,
+        state: body.state,
+        zipCode: body.zip_code,
+        timezone: body.timezone,
       },
     );
   }
