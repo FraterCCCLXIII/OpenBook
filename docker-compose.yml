@@ -1,0 +1,35 @@
+# Local development — MySQL, Redis, Mailpit (SMTP capture)
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: openbook
+      MYSQL_DATABASE: openbook
+      MYSQL_USER: openbook
+      MYSQL_PASSWORD: openbook
+    ports:
+      - '3306:3306'
+    volumes:
+      - openbook_mysql:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - openbook_redis:/data
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '8025:8025'
+      - '1025:1025'
+
+volumes:
+  openbook_mysql:
+  openbook_redis:
