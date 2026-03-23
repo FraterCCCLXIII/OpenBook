@@ -39,6 +39,19 @@ pnpm dev
 
 Ensure `@openbook/shared` is built (`pnpm run build` or build runs automatically via Turbo dependency graph).
 
+### Web routes (UI shell)
+
+| Path | Audience |
+|------|----------|
+| `/` | Home + API status |
+| `/book` | Public booking (placeholder) |
+| `/customer/login` | Customer sign in (placeholder) |
+| `/customer/account` | Customer account / My bookings (placeholder) |
+| `/staff/login` | Admin / provider / secretary sign in (placeholder) |
+| `/staff/dashboard` | Staff dashboard (placeholder) |
+
+Forms submit to nothing yet — Nest auth and booking APIs are still to be implemented.
+
 ## Local services
 
 ```bash
