@@ -11,6 +11,7 @@ import {
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CustomerOtpService } from './customer-otp.service';
+import { sendOtpCode } from '../jobs/email.service';
 import { readAuthToken } from './read-auth-token';
 import {
   CustomerAuthGuard,
@@ -103,8 +104,13 @@ export class AuthController {
     if (!body.email?.trim()) {
       throw new BadRequestException('email is required');
     }
-    const code = await this.otp.requestCode(body.email.trim());
-    // In production wire to email/SMS. Dev: return code so it can be tested.
+    const email = body.email.trim();
+    const code = await this.otp.requestCode(email);
+    // Always send via Mailpit (dev) or real SMTP (prod). Return code only in dev for test convenience.
+    await sendOtpCode(email, code).catch((err: unknown) => {
+      // Non-fatal: log but don't block the response
+      console.error('[OTP] email send failed:', err);
+    });
     const isDev = process.env.NODE_ENV !== 'production';
     return { ok: true, ...(isDev ? { code } : {}) };
   }
@@ -118,14 +124,14 @@ export class AuthController {
       throw new BadRequestException('email and code are required');
     }
     await this.otp.verifyCode(body.email.trim(), body.code.trim());
-    const token = await this.auth.issueOtpSessionToken(body.email.trim());
+    const { token, isNew } = await this.auth.customerOtpLogin(body.email.trim());
     res.cookie('ob_auth', token, {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
-      maxAge: 15 * 60 * 1000, // 15 min — short-lived for password-reset flow
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days — full session
     });
-    return { ok: true };
+    return { ok: true, isNew };
   }
 
   @Post('customer/create-password')

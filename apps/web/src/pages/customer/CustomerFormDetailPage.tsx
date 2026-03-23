@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { apiJson } from '../../lib/api';
+import { Button, Card, FormField, Input } from '../../components/ui';
 
 type FormField = {
   id: number;
@@ -24,6 +26,9 @@ type Submission = {
   submittedAt: string;
   answers: Record<string, unknown>;
 };
+
+const sharedInputClass =
+  'block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand disabled:cursor-not-allowed disabled:bg-slate-50';
 
 export function CustomerFormDetailPage() {
   const { formId } = useParams<{ formId: string }>();
@@ -56,52 +61,78 @@ export function CustomerFormDetailPage() {
   });
 
   if (formQ.isPending) {
-    return <p className="text-sm text-zinc-500">Loading form…</p>;
+    return <p className="text-sm text-slate-400">Loading form…</p>;
   }
   if (formQ.isError) {
-    return <p className="text-sm text-red-400">{(formQ.error as Error).message}</p>;
+    return (
+      <p className="text-sm text-red-600" role="alert">
+        {(formQ.error as Error).message}
+      </p>
+    );
   }
 
   const form = formQ.data;
 
-  if (
-    !submitted &&
-    submissionQ.isSuccess &&
-    submissionQ.data.submission
-  ) {
-    const sub = submissionQ.data.submission;
+  const alreadySubmitted =
+    !submitted && submissionQ.isSuccess && submissionQ.data.submission;
+
+  if (alreadySubmitted) {
+    const sub = submissionQ.data.submission!;
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-zinc-50">{form.name}</h1>
-        <p className="text-sm text-emerald-400">
-          You already submitted this form on{' '}
-          {new Date(sub.submittedAt).toLocaleDateString()}.
-        </p>
+      <div className="mx-auto max-w-xl space-y-6">
         <button
           type="button"
           onClick={() => navigate('/customer/forms')}
-          className="text-sm text-zinc-500 hover:text-zinc-300"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-dark"
         >
-          ← Back to forms
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to forms
         </button>
+        <Card>
+          <div className="flex items-start gap-4">
+            <CheckCircle className="mt-0.5 h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
+            <div>
+              <h1 className="text-lg font-semibold text-slate-900">{form.name}</h1>
+              <p className="mt-1 text-sm text-slate-600">
+                You submitted this form on{' '}
+                <span className="font-medium">
+                  {new Date(sub.submittedAt).toLocaleDateString(undefined, {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </span>
+                .
+              </p>
+            </div>
+          </div>
+        </Card>
       </div>
     );
   }
 
   if (submitted) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-zinc-50">{form.name}</h1>
-        <p className="text-sm text-emerald-400">
-          Your response has been submitted. Thank you!
-        </p>
-        <button
-          type="button"
-          onClick={() => navigate('/customer/forms')}
-          className="text-sm text-zinc-500 hover:text-zinc-300"
-        >
-          ← Back to forms
-        </button>
+      <div className="mx-auto max-w-xl space-y-6">
+        <Card>
+          <div className="flex items-start gap-4">
+            <CheckCircle className="mt-0.5 h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
+            <div>
+              <h1 className="text-lg font-semibold text-slate-900">{form.name}</h1>
+              <p className="mt-1 text-sm text-slate-600">
+                Your response has been submitted. Thank you!
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => navigate('/customer/forms')}
+              >
+                Back to forms
+              </Button>
+            </div>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -116,121 +147,142 @@ export function CustomerFormDetailPage() {
   }
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="mx-auto max-w-xl space-y-6">
+      <button
+        type="button"
+        onClick={() => navigate('/customer/forms')}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-dark"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back to forms
+      </button>
+
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-50">{form.name}</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{form.name}</h1>
         {form.description && (
-          <p className="mt-1 text-sm text-zinc-400">{form.description}</p>
+          <p className="mt-1 text-sm text-slate-500">{form.description}</p>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {form.fields.map((field) => (
-          <div key={field.id} className="space-y-1">
-            <label className="block text-sm font-medium text-zinc-300">
-              {field.label}
-              {field.isRequired && <span className="ml-1 text-red-400">*</span>}
-            </label>
-
-            {(field.fieldType === 'input' || field.fieldType === 'date') && (
-              <input
-                type={field.fieldType === 'date' ? 'date' : 'text'}
+      <Card>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {form.fields
+            .slice()
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .map((field) => (
+              <FormField
+                key={field.id}
+                label={field.label}
+                htmlFor={`field-${field.id}`}
                 required={field.isRequired}
-                value={(answers[field.id] as string) ?? ''}
-                onChange={(e) => setValue(field.id, e.target.value)}
-                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
-              />
-            )}
-
-            {field.fieldType === 'text' && (
-              <textarea
-                required={field.isRequired}
-                rows={3}
-                value={(answers[field.id] as string) ?? ''}
-                onChange={(e) => setValue(field.id, e.target.value)}
-                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
-              />
-            )}
-
-            {field.fieldType === 'dropdown' && (
-              <select
-                required={field.isRequired}
-                value={(answers[field.id] as string) ?? ''}
-                onChange={(e) => setValue(field.id, e.target.value)}
-                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
               >
-                <option value="">Select…</option>
-                {field.options.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            )}
+                {(field.fieldType === 'input' || field.fieldType === 'date') && (
+                  <Input
+                    id={`field-${field.id}`}
+                    type={field.fieldType === 'date' ? 'date' : 'text'}
+                    required={field.isRequired}
+                    value={(answers[field.id] as string) ?? ''}
+                    onChange={(e) => setValue(field.id, e.target.value)}
+                  />
+                )}
 
-            {field.fieldType === 'radio' && (
-              <div className="space-y-1">
-                {field.options.map((opt) => (
-                  <label key={opt} className="flex items-center gap-2 text-sm text-zinc-300">
-                    <input
-                      type="radio"
-                      name={`field-${field.id}`}
-                      value={opt}
-                      required={field.isRequired}
-                      checked={(answers[field.id] as string) === opt}
-                      onChange={() => setValue(field.id, opt)}
-                      className="accent-emerald-500"
-                    />
-                    {opt}
-                  </label>
-                ))}
-              </div>
-            )}
+                {field.fieldType === 'text' && (
+                  <textarea
+                    id={`field-${field.id}`}
+                    required={field.isRequired}
+                    rows={3}
+                    value={(answers[field.id] as string) ?? ''}
+                    onChange={(e) => setValue(field.id, e.target.value)}
+                    className={sharedInputClass}
+                  />
+                )}
 
-            {field.fieldType === 'checkboxes' && (
-              <div className="space-y-1">
-                {field.options.map((opt) => {
-                  const checked = ((answers[field.id] as string[]) ?? []).includes(opt);
-                  return (
-                    <label key={opt} className="flex items-center gap-2 text-sm text-zinc-300">
-                      <input
-                        type="checkbox"
-                        value={opt}
-                        checked={checked}
-                        onChange={(e) => {
-                          const prev = (answers[field.id] as string[]) ?? [];
-                          setValue(
-                            field.id,
-                            e.target.checked
-                              ? [...prev, opt]
-                              : prev.filter((v) => v !== opt),
-                          );
-                        }}
-                        className="accent-emerald-500"
-                      />
-                      {opt}
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ))}
+                {field.fieldType === 'dropdown' && (
+                  <select
+                    id={`field-${field.id}`}
+                    required={field.isRequired}
+                    value={(answers[field.id] as string) ?? ''}
+                    onChange={(e) => setValue(field.id, e.target.value)}
+                    className={sharedInputClass}
+                  >
+                    <option value="">Select…</option>
+                    {field.options.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
-        {submitMutation.isError && (
-          <p className="text-sm text-red-400">
-            {(submitMutation.error as Error).message}
-          </p>
-        )}
+                {field.fieldType === 'radio' && (
+                  <div className="space-y-2" role="radiogroup">
+                    {field.options.map((opt) => (
+                      <label
+                        key={opt}
+                        className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-700"
+                      >
+                        <input
+                          type="radio"
+                          name={`field-${field.id}`}
+                          value={opt}
+                          required={field.isRequired}
+                          checked={(answers[field.id] as string) === opt}
+                          onChange={() => setValue(field.id, opt)}
+                          className="h-4 w-4 accent-brand"
+                        />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                )}
 
-        <button
-          type="submit"
-          disabled={submitMutation.isPending}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-        >
-          {submitMutation.isPending ? 'Submitting…' : 'Submit'}
-        </button>
-      </form>
+                {field.fieldType === 'checkboxes' && (
+                  <div className="space-y-2">
+                    {field.options.map((opt) => {
+                      const checked = (
+                        (answers[field.id] as string[]) ?? []
+                      ).includes(opt);
+                      return (
+                        <label
+                          key={opt}
+                          className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-700"
+                        >
+                          <input
+                            type="checkbox"
+                            value={opt}
+                            checked={checked}
+                            onChange={(e) => {
+                              const prev =
+                                (answers[field.id] as string[]) ?? [];
+                              setValue(
+                                field.id,
+                                e.target.checked
+                                  ? [...prev, opt]
+                                  : prev.filter((v) => v !== opt),
+                              );
+                            }}
+                            className="h-4 w-4 accent-brand"
+                          />
+                          {opt}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </FormField>
+            ))}
+
+          {submitMutation.isError && (
+            <p className="text-sm text-red-600" role="alert">
+              {(submitMutation.error as Error).message}
+            </p>
+          )}
+
+          <Button type="submit" disabled={submitMutation.isPending}>
+            {submitMutation.isPending ? 'Submitting…' : 'Submit form'}
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

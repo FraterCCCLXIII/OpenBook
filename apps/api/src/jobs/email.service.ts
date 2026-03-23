@@ -89,6 +89,41 @@ function renderTemplate(
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
+// ─── OTP email ───────────────────────────────────────────────────────────────
+
+export async function sendOtpCode(
+  email: string,
+  code: string,
+  expiryMinutes = 5,
+): Promise<void> {
+  const t = getTransporter();
+  await t.sendMail({
+    from: '"OpenBook" <noreply@openbook.local>',
+    to: email,
+    subject: 'Your verification code',
+    html: `
+      <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        <h2 style="font-size:22px;font-weight:700;color:#0f172a;margin:0 0 8px">
+          Your verification code
+        </h2>
+        <p style="color:#64748b;margin:0 0 24px">
+          Use the code below to continue. It expires in ${expiryMinutes} minutes.
+        </p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px;text-align:center">
+          <span style="font-size:36px;font-weight:700;letter-spacing:0.2em;color:#439a82;font-family:monospace">
+            ${code}
+          </span>
+        </div>
+        <p style="color:#94a3b8;font-size:12px;margin:16px 0 0">
+          If you didn't request this, you can safely ignore this email.
+        </p>
+      </div>`,
+    text: `Your verification code is: ${code}\n\nIt expires in ${expiryMinutes} minutes.`,
+  });
+}
+
+// ─── Booking confirmation email ───────────────────────────────────────────────
+
 export async function sendBookingConfirmation(
   data: BookingEmailData,
 ): Promise<void> {

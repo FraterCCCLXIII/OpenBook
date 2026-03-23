@@ -7,16 +7,17 @@ import {
 import { PublicLayout } from './layouts/PublicLayout';
 import { CustomerLayout } from './layouts/CustomerLayout';
 import { StaffShell } from './layouts/StaffShell';
-import { HomePage } from './pages/HomePage';
 import { BookPage } from './pages/BookPage';
 import { CustomerLoginPage } from './pages/customer/CustomerLoginPage';
 import { CustomerRegisterPage } from './pages/customer/CustomerRegisterPage';
 import { CustomerCreatePasswordPage } from './pages/customer/CustomerCreatePasswordPage';
+import { CustomerDashboardPage } from './pages/customer/CustomerDashboardPage';
 import { CustomerAccountPage } from './pages/customer/CustomerAccountPage';
 import { CustomerBookingDetailPage } from './pages/customer/CustomerBookingDetailPage';
 import { CustomerBookingsPage } from './pages/customer/CustomerBookingsPage';
 import { CustomerConsentsPage } from './pages/customer/CustomerConsentsPage';
 import { CustomerFormsPage } from './pages/customer/CustomerFormsPage';
+import { useAuth } from './auth/AuthContext';
 import { StaffLoginPage } from './pages/staff/StaffLoginPage';
 import { StaffDashboardPage } from './pages/staff/StaffDashboardPage';
 import { StaffCustomerDetailPage } from './pages/staff/StaffCustomerDetailPage';
@@ -59,27 +60,37 @@ const Loading = () => (
   </div>
 );
 
+/** Redirects logged-in customers to their dashboard; others see the login page. */
+function RootPage() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user?.kind === 'customer') return <Navigate to="/customer/dashboard" replace />;
+  return <CustomerLoginPage />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route element={<PublicLayout />}>
-            <Route path="/" element={<HomePage />} />
+            {/* Public / unauthenticated */}
+            <Route path="/" element={<RootPage />} />
             <Route path="/book" element={<BookPage />} />
-          </Route>
+            <Route path="/customer/login" element={<CustomerLoginPage />} />
+            <Route path="/customer/register" element={<CustomerRegisterPage />} />
+            <Route path="/customer/create-password" element={<CustomerCreatePasswordPage />} />
 
-          <Route path="/customer/login" element={<CustomerLoginPage />} />
-          <Route path="/customer/register" element={<CustomerRegisterPage />} />
-          <Route path="/customer/create-password" element={<CustomerCreatePasswordPage />} />
-
-          <Route element={<CustomerLayout />}>
-            <Route path="/customer/account" element={<CustomerAccountPage />} />
-            <Route path="/customer/bookings/:id" element={<CustomerBookingDetailPage />} />
-            <Route path="/customer/bookings" element={<CustomerBookingsPage />} />
-            <Route path="/customer/forms" element={<CustomerFormsPage />} />
-            <Route path="/customer/forms/:formId" element={<CustomerFormDetailPage />} />
-            <Route path="/customer/consents" element={<CustomerConsentsPage />} />
+            {/* Customer portal — auth-guarded, inherits PublicLayout nav */}
+            <Route element={<CustomerLayout />}>
+              <Route path="/customer/dashboard" element={<CustomerDashboardPage />} />
+              <Route path="/customer/account" element={<CustomerAccountPage />} />
+              <Route path="/customer/bookings/:id" element={<CustomerBookingDetailPage />} />
+              <Route path="/customer/bookings" element={<CustomerBookingsPage />} />
+              <Route path="/customer/forms" element={<CustomerFormsPage />} />
+              <Route path="/customer/forms/:formId" element={<CustomerFormDetailPage />} />
+              <Route path="/customer/consents" element={<CustomerConsentsPage />} />
+            </Route>
           </Route>
 
           <Route path="/staff/login" element={<StaffLoginPage />} />

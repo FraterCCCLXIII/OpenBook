@@ -358,7 +358,81 @@ export class AuthService {
     };
   }
 
-  /** Issue a short-lived JWT after OTP verification for password-set flows. */
+  /**
+   * OTP login: finds or auto-creates a customer account for the verified email,
+   * then issues a full 7-day session token.
+   * Used by the OTP login flow (passwordless).
+   */
+  async customerOtpLogin(
+    email: string,
+  ): Promise<{ token: string; user: CustomerMeResponse; isNew: boolean }> {
+    this.ensureDb();
+    const normalized = email.trim().toLowerCase();
+
+    let auth = await this.prisma.customerAuth.findFirst({
+      where: { email: normalized },
+    });
+
+    let isNew = false;
+
+    if (!auth) {
+      isNew = true;
+      const customerRole = await this.prisma.role.findFirst({
+        where: { slug: 'customer' },
+      });
+      if (!customerRole) {
+        throw new ServiceUnavailableException('Customer role not seeded');
+      }
+      const user = await this.prisma.user.create({
+        data: {
+          email: normalized,
+          firstName: null,
+          lastName: null,
+          idRoles: customerRole.id,
+          timezone: 'UTC',
+          customerAuth: {
+            create: {
+              email: normalized,
+              passwordHash: null,
+              status: 'active',
+            },
+          },
+        },
+      });
+      auth = await this.prisma.customerAuth.findFirst({
+        where: { customerId: user.id },
+      });
+    }
+
+    if (!auth || auth.status !== 'active') {
+      throw new UnauthorizedException('Account is inactive');
+    }
+
+    const u = await this.prisma.user.findUnique({
+      where: { id: auth.customerId },
+    });
+
+    const payload: CustomerJwtPayload = {
+      kind: 'customer',
+      customerId: auth.customerId.toString(),
+      email: auth.email,
+    };
+    const token = await this.jwt.signAsync({ ...payload });
+
+    return {
+      token,
+      isNew,
+      user: {
+        kind: 'customer',
+        customerId: auth.customerId.toString(),
+        email: auth.email,
+        firstName: u?.firstName ?? null,
+        lastName: u?.lastName ?? null,
+      },
+    };
+  }
+
+  /** Issue a short-lived JWT after OTP verification for password-reset flows only. */
   async issueOtpSessionToken(email: string): Promise<string> {
     this.ensureDb();
     const normalized = email.trim().toLowerCase();

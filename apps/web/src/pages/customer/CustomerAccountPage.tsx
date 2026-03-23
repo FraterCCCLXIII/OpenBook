@@ -1,7 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { CalendarDays, FileText, User } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { apiJson } from '../../lib/api';
+import { Button, Card, FormField, Input } from '../../components/ui';
+
+type CustomerProfile = {
+  kind: string;
+  customerId: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+};
 
 export function CustomerAccountPage() {
   const { user, refresh } = useAuth();
@@ -9,14 +19,7 @@ export function CustomerAccountPage() {
 
   const profile = useQuery({
     queryKey: ['customer', 'profile'],
-    queryFn: () =>
-      apiJson<{
-        kind: string;
-        customerId: string;
-        email: string;
-        firstName: string | null;
-        lastName: string | null;
-      }>('/api/customer/profile'),
+    queryFn: () => apiJson<CustomerProfile>('/api/customer/profile'),
     enabled: user?.kind === 'customer',
   });
 
@@ -40,71 +43,107 @@ export function CustomerAccountPage() {
   const last = profile.data?.lastName ?? '';
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-50">My account</h1>
-      <p className="text-zinc-400">
-        Signed in as <span className="font-medium text-zinc-200">{user.email}</span>
-      </p>
+    <div className="mx-auto max-w-lg space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-900">My Account</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Signed in as{' '}
+          <span className="font-medium text-slate-700">{user.email}</span>
+        </p>
+      </div>
 
-      {profile.isPending && <p className="text-sm text-zinc-500">Loading profile…</p>}
+      {profile.isPending && (
+        <p className="text-sm text-slate-400">Loading profile…</p>
+      )}
       {profile.isError && (
-        <p className="text-sm text-red-400">{(profile.error as Error).message}</p>
+        <p className="text-sm text-red-600">{(profile.error as Error).message}</p>
       )}
 
       {profile.isSuccess && (
-        <form
-          className="max-w-md space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            save.mutate({
-              first_name: String(fd.get('first_name') ?? ''),
-              last_name: String(fd.get('last_name') ?? ''),
-            });
-          }}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1">
-              <span className="text-xs text-zinc-500">First name</span>
-              <input
-                name="first_name"
-                defaultValue={first}
-                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-xs text-zinc-500">Last name</span>
-              <input
-                name="last_name"
-                defaultValue={last}
-                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
-              />
-            </label>
-          </div>
-          <button
-            type="submit"
-            disabled={save.isPending}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        <Card>
+          <h2 className="mb-5 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Profile
+          </h2>
+          <form
+            className="space-y-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.currentTarget);
+              save.mutate({
+                first_name: String(fd.get('first_name') ?? ''),
+                last_name: String(fd.get('last_name') ?? ''),
+              });
+            }}
           >
-            {save.isPending ? 'Saving…' : 'Save profile'}
-          </button>
-          {save.isSuccess && <p className="text-sm text-emerald-500">Saved.</p>}
-        </form>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="First name" htmlFor="first_name">
+                <Input
+                  id="first_name"
+                  name="first_name"
+                  defaultValue={first}
+                  placeholder="Jane"
+                  autoComplete="given-name"
+                />
+              </FormField>
+              <FormField label="Last name" htmlFor="last_name">
+                <Input
+                  id="last_name"
+                  name="last_name"
+                  defaultValue={last}
+                  placeholder="Doe"
+                  autoComplete="family-name"
+                />
+              </FormField>
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <Button type="submit" disabled={save.isPending}>
+                {save.isPending ? 'Saving…' : 'Save changes'}
+              </Button>
+              {save.isSuccess && (
+                <p className="text-sm text-brand">Saved successfully.</p>
+              )}
+              {save.isError && (
+                <p className="text-sm text-red-600">
+                  {(save.error as Error).message}
+                </p>
+              )}
+            </div>
+          </form>
+        </Card>
       )}
 
-      <div className="flex flex-wrap gap-3 text-sm">
-        <Link
-          to="/customer/bookings"
-          className="rounded-lg border border-zinc-700 bg-zinc-900/50 px-4 py-2 text-emerald-400 hover:bg-zinc-800"
-        >
-          My bookings
-        </Link>
-        <Link
-          to="/customer/forms"
-          className="rounded-lg border border-zinc-700 bg-zinc-900/50 px-4 py-2 text-emerald-400 hover:bg-zinc-800"
-        >
-          My forms
-        </Link>
+      <div>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Quick links
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link
+            to="/customer/bookings"
+            className="flex items-center gap-3 rounded-card border border-slate-200 bg-surface-card p-4 shadow-card transition-colors hover:border-brand hover:shadow-md"
+          >
+            <CalendarDays className="h-5 w-5 text-brand" aria-hidden="true" />
+            <span className="text-sm font-medium text-slate-700">
+              My bookings
+            </span>
+          </Link>
+          <Link
+            to="/customer/forms"
+            className="flex items-center gap-3 rounded-card border border-slate-200 bg-surface-card p-4 shadow-card transition-colors hover:border-brand hover:shadow-md"
+          >
+            <FileText className="h-5 w-5 text-brand" aria-hidden="true" />
+            <span className="text-sm font-medium text-slate-700">My forms</span>
+          </Link>
+          <Link
+            to="/customer/consents"
+            className="flex items-center gap-3 rounded-card border border-slate-200 bg-surface-card p-4 shadow-card transition-colors hover:border-brand hover:shadow-md"
+          >
+            <User className="h-5 w-5 text-brand" aria-hidden="true" />
+            <span className="text-sm font-medium text-slate-700">
+              Privacy &amp; consents
+            </span>
+          </Link>
+        </div>
       </div>
     </div>
   );

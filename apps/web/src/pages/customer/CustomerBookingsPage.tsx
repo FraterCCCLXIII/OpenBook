@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { CalendarPlus, ChevronRight } from 'lucide-react';
 import { apiJson } from '../../lib/api';
+import { Button, Card, FormField, Input } from '../../components/ui';
 
 type AppointmentRow = {
   id: string;
@@ -15,9 +17,7 @@ type AppointmentRow = {
 
 async function fetchAppointments(): Promise<{ items: AppointmentRow[] }> {
   const res = await fetch('/api/customer/appointments', { credentials: 'include' });
-  if (!res.ok) {
-    throw new Error('Failed to load appointments');
-  }
+  if (!res.ok) throw new Error('Failed to load appointments');
   return res.json() as Promise<{ items: AppointmentRow[] }>;
 }
 
@@ -46,7 +46,12 @@ function NewBookingModal({ onClose }: { onClose: () => void }) {
   });
 
   const m = useMutation({
-    mutationFn: (body: { serviceId: string; providerId: string; startDatetime: string; notes: string }) =>
+    mutationFn: (body: {
+      serviceId: string;
+      providerId: string;
+      startDatetime: string;
+      notes: string;
+    }) =>
       apiJson('/api/customer/appointments', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -63,143 +68,185 @@ function NewBookingModal({ onClose }: { onClose: () => void }) {
     m.mutate({ serviceId, providerId, startDatetime, notes });
   }
 
+  const selectClass =
+    'block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-xl">
-        <h2 className="mb-4 text-lg font-semibold text-zinc-100">Book a New Appointment</h2>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="new-booking-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    >
+      <Card className="w-full max-w-md">
+        <h2 id="new-booking-title" className="mb-5 text-lg font-semibold text-slate-900">
+          Book a New Appointment
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block space-y-1">
-            <span className="text-xs uppercase text-zinc-500">Service</span>
+          <FormField label="Service" htmlFor="service" required>
             <select
+              id="service"
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
               required
-              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+              className={selectClass}
             >
-              <option value="">— select —</option>
+              <option value="">— select a service —</option>
               {services.data?.map((s) => (
-                <option key={s.id} value={s.id}>{s.name ?? s.id}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name ?? s.id}
+                </option>
               ))}
             </select>
-          </label>
+          </FormField>
 
-          <label className="block space-y-1">
-            <span className="text-xs uppercase text-zinc-500">Provider</span>
+          <FormField label="Provider" htmlFor="provider" required>
             <select
+              id="provider"
               value={providerId}
               onChange={(e) => setProviderId(e.target.value)}
               required
               disabled={!serviceId}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 disabled:opacity-50"
+              className={selectClass}
             >
-              <option value="">— select —</option>
+              <option value="">— select a provider —</option>
               {providers.data?.map((p) => (
-                <option key={p.id} value={p.id}>{p.displayName}</option>
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
+                </option>
               ))}
             </select>
-          </label>
+          </FormField>
 
-          <label className="block space-y-1">
-            <span className="text-xs uppercase text-zinc-500">Date &amp; Time</span>
-            <input
+          <FormField label="Date & Time" htmlFor="start-datetime" required>
+            <Input
+              id="start-datetime"
               type="datetime-local"
               value={startDatetime}
               onChange={(e) => setStartDatetime(e.target.value)}
               required
-              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
             />
-          </label>
+          </FormField>
 
-          <label className="block space-y-1">
-            <span className="text-xs uppercase text-zinc-500">Notes (optional)</span>
+          <FormField label="Notes (optional)" htmlFor="notes">
             <textarea
+              id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+              className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand"
+              placeholder="Any additional notes…"
             />
-          </label>
+          </FormField>
 
           {m.isError && (
-            <p className="text-sm text-red-400">{(m.error as Error).message}</p>
+            <p className="text-sm text-red-600" role="alert">
+              {(m.error as Error).message}
+            </p>
           )}
 
           <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={m.isPending}
-              className="flex-1 rounded-lg bg-emerald-600 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={m.isPending} className="flex-1">
               {m.isPending ? 'Booking…' : 'Confirm Booking'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
-            >
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
     </div>
   );
+}
+
+function formatDateTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 export function CustomerBookingsPage() {
   const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
+
   const q = useQuery({
     queryKey: ['customer', 'appointments'],
     queryFn: fetchAppointments,
   });
 
   return (
-    <div className="min-h-[40vh]">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-50">{t('my_bookings')}</h1>
-        <button
-          type="button"
-          onClick={() => setShowModal(true)}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-        >
-          + Book Appointment
-        </button>
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">{t('my_bookings')}</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Your upcoming and past appointments.
+          </p>
+        </div>
+        <Button onClick={() => setShowModal(true)}>
+          <CalendarPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+          Book appointment
+        </Button>
       </div>
+
       {showModal && <NewBookingModal onClose={() => setShowModal(false)} />}
 
-      <p className="mt-2 text-zinc-400">Your upcoming and past appointments.</p>
-
-      {q.isPending && <p className="mt-6 text-sm text-zinc-500">Loading…</p>}
+      {q.isPending && (
+        <p className="text-sm text-slate-400">Loading…</p>
+      )}
       {q.isError && (
-        <p className="mt-6 text-sm text-red-400">{(q.error as Error).message}</p>
+        <p className="text-sm text-red-600" role="alert">
+          {(q.error as Error).message}
+        </p>
       )}
 
       {q.isSuccess && q.data.items.length === 0 && (
-        <div className="mt-6 rounded-lg border border-dashed border-zinc-700 bg-zinc-900/40 p-8 text-center text-sm text-zinc-500">
-          No bookings yet.
-        </div>
+        <Card className="py-14 text-center">
+          <CalendarPlus className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
+          <p className="text-sm font-medium text-slate-500">No bookings yet.</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => setShowModal(true)}
+          >
+            Book your first appointment
+          </Button>
+        </Card>
       )}
 
       {q.isSuccess && q.data.items.length > 0 && (
-        <ul className="mt-6 space-y-3">
+        <ul className="space-y-2" aria-label="Appointments">
           {q.data.items.map((a) => (
             <li key={a.id}>
               <Link
                 to={`/customer/bookings/${a.id}`}
-                className="block rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-sm text-zinc-200 transition-colors hover:border-zinc-600"
+                className="flex items-center justify-between rounded-card border border-slate-200 bg-surface-card px-5 py-4 shadow-card transition-all hover:border-brand hover:shadow-md"
               >
-                <div className="font-medium text-zinc-100">
-                  {a.serviceName ?? 'Appointment'}{' '}
-                  {a.startDatetime && (
-                    <span className="font-normal text-zinc-400">
-                      · {new Date(a.startDatetime).toLocaleString()}
-                    </span>
+                <div>
+                  <div className="font-medium text-slate-900">
+                    {a.serviceName ?? 'Appointment'}
+                  </div>
+                  {a.providerName && (
+                    <div className="mt-0.5 text-xs text-slate-500">
+                      With {a.providerName}
+                    </div>
                   )}
                 </div>
-                {a.providerName && (
-                  <div className="mt-1 text-xs text-zinc-500">With {a.providerName}</div>
-                )}
+                <div className="flex items-center gap-2">
+                  {a.startDatetime && (
+                    <span className="text-xs text-slate-400">
+                      {formatDateTime(a.startDatetime)}
+                    </span>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-slate-300" aria-hidden="true" />
+                </div>
               </Link>
             </li>
           ))}

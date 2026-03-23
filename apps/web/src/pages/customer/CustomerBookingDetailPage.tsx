@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { AlertTriangle, ArrowLeft, CalendarDays, Pencil, User, X } from 'lucide-react';
 import { apiJson } from '../../lib/api';
+import { Button, Card, FormField, Input } from '../../components/ui';
 
 type Appt = {
   id: string;
@@ -17,6 +19,17 @@ function toLocalDatetimeValue(iso: string | null): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 export function CustomerBookingDetailPage() {
@@ -39,7 +52,7 @@ export function CustomerBookingDetailPage() {
         method: 'DELETE',
         credentials: 'include',
       }).then((res) => {
-        if (!res.ok) throw new Error('Could not cancel');
+        if (!res.ok) throw new Error('Could not cancel appointment');
         return res.json();
       }),
     onSuccess: () => {
@@ -76,89 +89,148 @@ export function CustomerBookingDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
-      <Link to="/customer/bookings" className="text-sm text-emerald-500 hover:underline">
-        ← Back to bookings
+    <div className="mx-auto max-w-lg space-y-6">
+      <Link
+        to="/customer/bookings"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-dark"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Back to bookings
       </Link>
-      {q.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
-      {q.isError && <p className="text-sm text-red-400">{(q.error as Error).message}</p>}
+
+      {q.isPending && <p className="text-sm text-slate-400">Loading…</p>}
+      {q.isError && (
+        <p className="text-sm text-red-600" role="alert">
+          {(q.error as Error).message}
+        </p>
+      )}
+
       {q.isSuccess && (
         <>
-          <h1 className="text-2xl font-semibold text-zinc-50">{q.data.serviceName ?? 'Appointment'}</h1>
-          {q.data.startDatetime && (
-            <p className="text-zinc-400">{new Date(q.data.startDatetime).toLocaleString()}</p>
-          )}
-          {q.data.providerName && (
-            <p className="text-sm text-zinc-500">With {q.data.providerName}</p>
-          )}
-          {q.data.notes && (
-            <p className="text-sm text-zinc-400 whitespace-pre-wrap">{q.data.notes}</p>
-          )}
+          <Card>
+            <h1 className="text-xl font-semibold text-slate-900">
+              {q.data.serviceName ?? 'Appointment'}
+            </h1>
+
+            <dl className="mt-4 space-y-3">
+              {q.data.startDatetime && (
+                <div className="flex items-start gap-3">
+                  <CalendarDays
+                    className="mt-0.5 h-4 w-4 shrink-0 text-brand"
+                    aria-hidden="true"
+                  />
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Date &amp; Time
+                    </dt>
+                    <dd className="mt-0.5 text-sm text-slate-700">
+                      {formatDateTime(q.data.startDatetime)}
+                    </dd>
+                  </div>
+                </div>
+              )}
+
+              {q.data.providerName && (
+                <div className="flex items-start gap-3">
+                  <User
+                    className="mt-0.5 h-4 w-4 shrink-0 text-brand"
+                    aria-hidden="true"
+                  />
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Provider
+                    </dt>
+                    <dd className="mt-0.5 text-sm text-slate-700">
+                      {q.data.providerName}
+                    </dd>
+                  </div>
+                </div>
+              )}
+
+              {q.data.notes && (
+                <div className="border-t border-slate-100 pt-3">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Notes
+                  </dt>
+                  <dd className="mt-1 whitespace-pre-wrap text-sm text-slate-600">
+                    {q.data.notes}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </Card>
 
           {!editing ? (
-            <div className="flex gap-3">
-              <button
-                type="button"
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="outline"
                 onClick={() => openEdit(q.data)}
-                className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
               >
+                <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                 Edit appointment
-              </button>
+              </Button>
               <button
                 type="button"
-                className="rounded-lg border border-red-900/60 bg-red-950/30 px-4 py-2 text-sm text-red-300 hover:bg-red-950/50"
                 disabled={cancel.isPending}
                 onClick={() => {
-                  if (confirm('Cancel this appointment?')) cancel.mutate();
+                  if (confirm('Are you sure you want to cancel this appointment?')) {
+                    cancel.mutate();
+                  }
                 }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:pointer-events-none disabled:opacity-50"
               >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
                 {cancel.isPending ? 'Cancelling…' : 'Cancel appointment'}
               </button>
             </div>
           ) : (
-            <form
-              onSubmit={handleEditSubmit}
-              className="space-y-3 rounded-lg border border-zinc-700 bg-zinc-900/60 p-4"
-            >
-              <h2 className="text-sm font-semibold text-zinc-200">Edit Appointment</h2>
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">Date &amp; Time</span>
-                <input
-                  type="datetime-local"
-                  value={editStart}
-                  onChange={(e) => setEditStart(e.target.value)}
-                  className="w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">Notes</span>
-                <textarea
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  rows={3}
-                  className="w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100"
-                />
-              </label>
-              {update.isError && (
-                <p className="text-sm text-red-400">{(update.error as Error).message}</p>
-              )}
-              <div className="flex gap-3">
-                <button
-                  type="submit"
-                  disabled={update.isPending}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {update.isPending ? 'Saving…' : 'Save changes'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditing(false)}
-                  className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+            <Card>
+              <h2 className="mb-4 text-base font-semibold text-slate-900">
+                Edit Appointment
+              </h2>
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <FormField label="Date & Time" htmlFor="edit-start">
+                  <Input
+                    id="edit-start"
+                    type="datetime-local"
+                    value={editStart}
+                    onChange={(e) => setEditStart(e.target.value)}
+                  />
+                </FormField>
+
+                <FormField label="Notes" htmlFor="edit-notes">
+                  <textarea
+                    id="edit-notes"
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    rows={3}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand"
+                  />
+                </FormField>
+
+                {update.isError && (
+                  <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                    <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden="true" />
+                    <p className="text-sm text-red-700" role="alert">
+                      {(update.error as Error).message}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <Button type="submit" disabled={update.isPending}>
+                    {update.isPending ? 'Saving…' : 'Save changes'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setEditing(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </Card>
           )}
         </>
       )}

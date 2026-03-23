@@ -1,8 +1,24 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiJson } from '../../lib/api';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { FormField } from '../../components/ui/FormField';
+import { Input } from '../../components/ui/Input';
 
 type Step = 'email' | 'otp' | 'password';
+
+const stepTitles: Record<Step, string> = {
+  email:    'Set your password',
+  otp:      'Check your email',
+  password: 'Choose a password',
+};
+
+const stepSubtitles: Record<Step, string> = {
+  email:    'Enter your email to receive a one-time code.',
+  otp:      'Enter the 6-digit code we sent you.',
+  password: 'Choose a strong password for your account.',
+};
 
 export function CustomerCreatePasswordPage() {
   const navigate = useNavigate();
@@ -70,131 +86,109 @@ export function CustomerCreatePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 px-4 py-12 text-zinc-100">
-      <div className="mx-auto max-w-md space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-50">Set your password</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {step === 'email' && 'Enter your email to receive a one-time code.'}
-            {step === 'otp' && `Enter the 6-digit code sent to ${email}.`}
-            {step === 'password' && 'Choose a password for your account.'}
+    <div className="mx-auto max-w-sm py-6">
+      <div className="mb-6 text-center">
+        <h1 className="font-brand text-2xl font-semibold text-slate-900">{stepTitles[step]}</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          {step === 'otp' ? `Code sent to ${email}.` : stepSubtitles[step]}
+        </p>
+      </div>
+
+      <Card padding="md">
+        {error && (
+          <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600" role="alert">
+            {error}
           </p>
-        </div>
+        )}
 
         {step === 'email' && (
-          <form
-            className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-6"
-            onSubmit={handleRequestOtp}
-          >
-            {error && <p className="text-sm text-red-400">{error}</p>}
-            <label className="block space-y-1">
-              <span className="text-sm font-medium text-zinc-300">Email</span>
-              <input
+          <form className="space-y-4" onSubmit={handleRequestOtp}>
+            <FormField label="Email" htmlFor="email" required>
+              <Input
+                id="email"
                 type="email"
                 autoComplete="email"
-                required
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
-                placeholder="you@example.com"
+                required
               />
-            </label>
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-            >
+            </FormField>
+            <Button type="submit" disabled={pending} className="w-full justify-center">
               {pending ? 'Sending…' : 'Send code'}
-            </button>
+            </Button>
           </form>
         )}
 
         {step === 'otp' && (
-          <form
-            className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-6"
-            onSubmit={handleVerifyOtp}
-          >
-            {error && <p className="text-sm text-red-400">{error}</p>}
-            <label className="block space-y-1">
-              <span className="text-sm font-medium text-zinc-300">Verification code</span>
-              <input
+          <form className="space-y-4" onSubmit={handleVerifyOtp}>
+            <FormField label="Verification code" htmlFor="code" required>
+              <Input
+                id="code"
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={6}
-                required
+                placeholder="000000"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-center font-mono text-lg tracking-widest text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
-                placeholder="000000"
+                className="text-center font-mono text-lg tracking-widest"
+                required
               />
-            </label>
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-            >
+            </FormField>
+            <Button type="submit" disabled={pending} className="w-full justify-center">
               {pending ? 'Verifying…' : 'Verify code'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="w-full text-sm text-zinc-500 hover:text-zinc-300"
+              variant="ghost"
+              className="w-full justify-center"
               onClick={() => {
                 setStep('email');
                 setError(null);
               }}
             >
               Back
-            </button>
+            </Button>
           </form>
         )}
 
         {step === 'password' && (
-          <form
-            className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-6"
-            onSubmit={handleSetPassword}
-          >
-            {error && <p className="text-sm text-red-400">{error}</p>}
-            <label className="block space-y-1">
-              <span className="text-sm font-medium text-zinc-300">New password</span>
-              <input
+          <form className="space-y-4" onSubmit={handleSetPassword}>
+            <FormField label="New password" htmlFor="password" hint="Minimum 6 characters" required>
+              <Input
+                id="password"
                 type="password"
                 autoComplete="new-password"
                 minLength={6}
-                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
+                required
               />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-sm font-medium text-zinc-300">Confirm password</span>
-              <input
+            </FormField>
+            <FormField label="Confirm password" htmlFor="confirm" required>
+              <Input
+                id="confirm"
                 type="password"
                 autoComplete="new-password"
                 minLength={6}
-                required
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
+                required
               />
-            </label>
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-            >
+            </FormField>
+            <Button type="submit" disabled={pending} className="w-full justify-center">
               {pending ? 'Saving…' : 'Set password'}
-            </button>
+            </Button>
           </form>
         )}
+      </Card>
 
-        <p className="text-center text-sm text-zinc-500">
-          <Link to="/customer/login" className="text-emerald-500 hover:underline">
-            Back to sign in
-          </Link>
-        </p>
-      </div>
+      <p className="mt-4 text-center text-sm text-slate-500">
+        <Link to="/customer/login" className="font-medium text-brand hover:text-brand-dark">
+          Back to sign in
+        </Link>
+      </p>
     </div>
   );
 }

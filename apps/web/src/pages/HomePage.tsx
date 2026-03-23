@@ -33,60 +33,64 @@ export function HomePage() {
   const companyName = publicSettings.data?.company_name?.trim();
 
   return (
-    <div className="space-y-10">
-      <section className="rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900/80 to-zinc-950 p-8">
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-50">
-          {companyName || 'Schedule appointments'}
+    <div className="space-y-8">
+      {/* Hero card */}
+      <section className="rounded-card bg-surface-card p-8 shadow-card md:p-12">
+        <h1 className="font-brand text-3xl font-semibold text-slate-900">
+          {companyName || 'Book an appointment'}
         </h1>
-        <p className="mt-2 max-w-2xl text-zinc-400">
+        <p className="mt-3 max-w-2xl text-slate-500">
           {companyName
             ? 'Book online or sign in to manage your appointments.'
-            : 'This is the new React app. Booking, customer accounts, and staff tools will call the Nest API as we port features from the PHP installation.'}
+            : 'Schedule your appointment quickly and easily. Choose a service, pick a time, and you\u2019re all set.'}
         </p>
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-8 flex flex-wrap gap-3">
           <Link
             to="/book"
-            className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-500"
+            className="inline-flex items-center rounded-lg bg-brand px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
           >
             Book an appointment
           </Link>
           <Link
             to="/customer/login"
-            className="inline-flex items-center rounded-lg border border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
+            className="inline-flex items-center rounded-lg border border-brand px-6 py-3 text-sm font-medium text-brand transition-colors hover:bg-brand/10"
           >
-            Customer sign in
-          </Link>
-          <Link
-            to="/staff/login"
-            className="inline-flex items-center rounded-lg border border-zinc-600 px-4 py-2.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800"
-          >
-            Staff sign in
+            Sign in to my account
           </Link>
         </div>
       </section>
 
-      <section className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-6">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-500">API status</h2>
-        {health.isPending && <p className="mt-2 text-sm text-zinc-400">Checking backend…</p>}
-        {health.isError && (
-          <p className="mt-2 text-sm text-red-400">
-            {(health.error as Error).message}. Run{' '}
-            <code className="rounded bg-zinc-800 px-1.5 py-0.5 text-zinc-200">pnpm --filter @openbook/api dev</code>
-          </p>
-        )}
-        {health.isSuccess && (
-          <dl className="mt-3 grid max-w-md gap-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-zinc-500">status</dt>
-              <dd className="font-mono text-emerald-400">{health.data.status}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-zinc-500">service</dt>
-              <dd className="font-mono">{health.data.service}</dd>
-            </div>
-          </dl>
-        )}
-      </section>
+      {/* API status — development only */}
+      {import.meta.env.DEV && (
+        <section className="rounded-lg border border-slate-200 bg-white p-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            API status (dev only)
+          </h2>
+          {health.isPending && (
+            <p className="mt-2 text-sm text-slate-500">Checking backend…</p>
+          )}
+          {health.isError && (
+            <p className="mt-2 text-sm text-red-500">
+              {(health.error as Error).message}. Run{' '}
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">
+                pnpm --filter @openbook/api dev
+              </code>
+            </p>
+          )}
+          {health.isSuccess && (
+            <dl className="mt-3 grid max-w-md gap-2 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">status</dt>
+                <dd className="font-mono text-brand">{health.data.status}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">service</dt>
+                <dd className="font-mono text-slate-700">{health.data.service}</dd>
+              </div>
+            </dl>
+          )}
+        </section>
+      )}
     </div>
   );
 }
