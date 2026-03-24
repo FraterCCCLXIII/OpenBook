@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
   Building2,
   Calendar,
+  ClipboardList,
   CreditCard,
+  FileText,
   KeyRound,
   LogIn,
   Mail,
@@ -15,6 +17,7 @@ import {
   Settings,
   Shield,
   UserCircle,
+  Wrench,
 } from 'lucide-react';
 import { apiJson } from '../../../lib/api';
 import { StaffLdapImportPanel } from '../../../components/staff/StaffLdapImportPanel';
@@ -23,19 +26,23 @@ import { TIMEZONE_GROUPS } from '../../../lib/timezones';
 
 type SectionValues = Record<string, string>;
 
-const NAV: { path: string; label: string; icon: LucideIcon }[] = [
+const NAV: { path: string; label: string; icon: LucideIcon; exact?: boolean }[] = [
   { path: 'general', label: 'General', icon: Settings },
   { path: 'business', label: 'Business', icon: Building2 },
   { path: 'booking', label: 'Booking', icon: Calendar },
-  { path: 'api', label: 'API', icon: KeyRound },
-  { path: 'stripe', label: 'Stripe', icon: CreditCard },
-  { path: 'ldap', label: 'LDAP', icon: Shield },
   { path: 'email-notifications', label: 'Email / SMTP', icon: Mail },
-  { path: 'legal', label: 'Legal', icon: Scale },
-  { path: 'analytics', label: 'Analytics', icon: BarChart3 },
   { path: 'customer-login', label: 'Customer login', icon: LogIn },
   { path: 'customer-profiles', label: 'Customer profiles', icon: UserCircle },
+  { path: 'legal', label: 'Legal', icon: Scale },
+  { path: 'analytics', label: 'Analytics', icon: BarChart3 },
   { path: 'service-areas', label: 'Service areas', icon: MapPin },
+  { path: 'forms', label: 'Forms', icon: FileText, exact: true },
+  { path: 'custom-fields', label: 'Custom fields', icon: ClipboardList, exact: true },
+  { path: 'tools', label: 'Tools', icon: Wrench, exact: true },
+  { path: 'consents', label: 'Consents', icon: Shield, exact: true },
+  { path: 'stripe', label: 'Stripe', icon: CreditCard },
+  { path: 'api', label: 'API', icon: KeyRound },
+  { path: 'ldap', label: 'LDAP', icon: Shield },
 ];
 
 const settingsNavLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -52,21 +59,7 @@ export function StaffSettingsLayout() {
       <div>
         <h1 className="text-2xl font-semibold text-zinc-50">Admin settings</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Each section is validated and patched via{' '}
-          <code className="text-zinc-600">PATCH /api/staff/settings/section/:section</code>.
-        </p>
-        <p className="mt-2 text-sm text-zinc-500">
-          <Link to="/staff/forms" className="text-emerald-500 hover:text-emerald-400">
-            Form builder
-          </Link>
-          {' · '}
-          <Link to="/staff/custom-fields" className="text-emerald-500 hover:text-emerald-400">
-            Custom fields
-          </Link>
-          {' · '}
-          <Link to="/staff/settings/integrations" className="text-emerald-500 hover:text-emerald-400">
-            Integrations
-          </Link>
+          Configure your business, branding, booking rules, and integrations.
         </p>
       </div>
       <div className="flex flex-col gap-8 md:flex-row md:items-start">
@@ -81,6 +74,7 @@ export function StaffSettingsLayout() {
                 <li key={n.path}>
                   <NavLink
                     to={`/staff/settings/${n.path}`}
+                    end={n.exact}
                     className={settingsNavLinkClass}
                   >
                     <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
@@ -375,7 +369,18 @@ function SectionFormInner({
   fields: typeof SECTION_FIELDS[string];
 }) {
   const qc = useQueryClient();
-  const [values, setValues] = useState<SectionValues>(initialValues);
+  const [values, setValues] = useState<SectionValues>(() => {
+    const result = { ...initialValues };
+    for (const f of fields) {
+      if (f.type === 'select' && !result[f.key] && f.options?.length) {
+        result[f.key] = f.options[0].value;
+      }
+      if (f.type === 'timezoneSelect' && !result[f.key]) {
+        result[f.key] = 'UTC';
+      }
+    }
+    return result;
+  });
 
   const m = useMutation({
     mutationFn: (body: SectionValues) =>
@@ -456,7 +461,14 @@ function SectionFormInner({
                   const reader = new FileReader();
                   reader.onload = () => {
                     const data = String(reader.result ?? '');
-                    setValues((v) => ({ ...v, [field.key]: data }));
+                    setValues((v) => {
+                      const next = { ...v, [field.key]: data };
+                      // Auto-populate the email logo when a SVG main logo is uploaded
+                      if (field.key === 'company_logo' && f.type === 'image/svg+xml') {
+                        next.company_logo_email_png = data;
+                      }
+                      return next;
+                    });
                   };
                   reader.readAsDataURL(f);
                 }}
@@ -504,7 +516,6 @@ function SectionFormInner({
               onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
               className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
             >
-              <option value="">— select —</option>
               {TIMEZONE_GROUPS.map((g) => (
                 <optgroup key={g.label} label={g.label}>
                   {g.options.map((tz) => (
@@ -521,7 +532,6 @@ function SectionFormInner({
               onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
               className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
             >
-              <option value="">— select —</option>
               {field.options?.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}

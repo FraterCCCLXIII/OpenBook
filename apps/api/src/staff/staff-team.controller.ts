@@ -107,7 +107,7 @@ export class StaffTeamController {
     @Param('roleSlug') roleSlug: string,
     @Param('id') id: string,
     @Body()
-    body: { firstName?: string; lastName?: string; email?: string },
+    body: { firstName?: string; lastName?: string; email?: string; phoneNumber?: string },
   ) {
     if (!can(req.staffUser.permissions, 'users', 'edit')) {
       throw new ForbiddenException();
@@ -152,6 +152,10 @@ export class StaffTeamController {
           body.email !== undefined
             ? body.email.trim().toLowerCase() || null
             : undefined,
+        phoneNumber:
+          body.phoneNumber !== undefined
+            ? body.phoneNumber.trim() || null
+            : undefined,
       },
     });
 
@@ -160,6 +164,7 @@ export class StaffTeamController {
       firstName: updated.firstName,
       lastName: updated.lastName,
       email: updated.email,
+      phoneNumber: updated.phoneNumber,
     };
   }
 
@@ -241,6 +246,7 @@ export class StaffTeamController {
         firstName: true,
         lastName: true,
         email: true,
+        phoneNumber: true,
       },
     });
     if (!u) {
@@ -252,6 +258,7 @@ export class StaffTeamController {
       firstName: u.firstName,
       lastName: u.lastName,
       email: u.email,
+      phoneNumber: u.phoneNumber,
       displayName:
         [u.firstName, u.lastName].filter(Boolean).join(' ').trim() ||
         u.email ||

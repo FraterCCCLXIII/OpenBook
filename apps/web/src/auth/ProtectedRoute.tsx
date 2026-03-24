@@ -24,6 +24,13 @@ export function ProtectedRoute({
   const { user, loading } = useAuth();
   const location = useLocation();
 
+  // Render immediately if the user already matches — avoids blocking the UI
+  // during a background auth/me refresh (e.g. right after login navigation).
+  if (matches(user, guard)) {
+    return <>{children}</>;
+  }
+
+  // Initial session check still in-flight and no user yet — show placeholder.
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-zinc-500">
@@ -32,10 +39,7 @@ export function ProtectedRoute({
     );
   }
 
-  if (!matches(user, guard)) {
-    const to = guard === 'staff' ? '/staff/login' : '/customer/login';
-    return <Navigate to={to} state={{ from: location.pathname }} replace />;
-  }
-
-  return <>{children}</>;
+  // Definitively unauthenticated — redirect to login.
+  const to = guard === 'staff' ? '/staff/login' : '/customer/login';
+  return <Navigate to={to} state={{ from: location.pathname }} replace />;
 }

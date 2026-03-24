@@ -3,21 +3,20 @@ import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import {
+  BookOpen,
   Briefcase,
   Calendar,
   CalendarDays,
-  ClipboardList,
-  FileText,
+  CreditCard,
   LayoutDashboard,
   List,
   LogOut,
-  MapPin,
   PanelLeft,
   ScrollText,
-  Shield,
+  ShieldCheck,
+  Stethoscope,
   Tags,
   User,
-  Users,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { canViewStaff } from '../auth/staffPermissions';
@@ -182,39 +181,12 @@ export function StaffSidebar() {
             icon={User}
           />
         )}
-        {canViewStaff(staff, 'customers') && (
-          <SidebarNavLink
-            to="/staff/tools"
-            collapsed={collapsed}
-            label="Tools"
-            icon={MapPin}
-          />
-        )}
-        {canViewStaff(staff, 'customers') && (
-          <SidebarNavLink
-            to="/staff/consents-report"
-            collapsed={collapsed}
-            label="Consents"
-            icon={Shield}
-          />
-        )}
-        {canViewStaff(staff, 'system_settings') && (
-          <SidebarNavLink to="/staff/forms" collapsed={collapsed} label="Forms" icon={FileText} />
-        )}
-        {canViewStaff(staff, 'system_settings') && (
-          <SidebarNavLink
-            to="/staff/custom-fields"
-            collapsed={collapsed}
-            label="Custom fields"
-            icon={ClipboardList}
-          />
-        )}
         {canViewStaff(staff, 'system_settings') && (
           <SidebarNavLink
             to="/staff/billing"
             collapsed={collapsed}
             label={t('billing')}
-            icon={FileText}
+            icon={CreditCard}
           />
         )}
         {canViewStaff(staff, 'system_settings') && (
@@ -257,19 +229,19 @@ export function StaffSidebar() {
               to="/staff/providers"
               collapsed={collapsed}
               label={t('providers')}
-              icon={Users}
+              icon={Stethoscope}
             />
             <SidebarNavLink
               to="/staff/secretaries"
               collapsed={collapsed}
               label={t('secretaries')}
-              icon={Users}
+              icon={BookOpen}
             />
             <SidebarNavLink
               to="/staff/admins"
               collapsed={collapsed}
               label={t('admins')}
-              icon={Users}
+              icon={ShieldCheck}
             />
           </div>
         )}

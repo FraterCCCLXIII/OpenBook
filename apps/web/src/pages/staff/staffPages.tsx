@@ -510,6 +510,8 @@ type TeamRow = {
   lastName: string | null;
 };
 
+type TeamMemberDetail = TeamRow & { phoneNumber: string | null };
+
 function filterTeam(items: TeamRow[], q: string): TeamRow[] {
   const s = q.trim().toLowerCase();
   if (!s) return items;
@@ -517,6 +519,158 @@ function filterTeam(items: TeamRow[], q: string): TeamRow[] {
     (u) =>
       u.displayName.toLowerCase().includes(s) ||
       (u.email ?? '').toLowerCase().includes(s),
+  );
+}
+
+function TeamMemberDetailPanel({
+  selectedId,
+  roleSlug,
+  onDeleted,
+}: {
+  selectedId: string;
+  roleSlug: string;
+  onDeleted: () => void;
+}) {
+  const qc = useQueryClient();
+
+  const detailQ = useQuery({
+    queryKey: ['staff', 'team', roleSlug, selectedId],
+    queryFn: () =>
+      apiJson<TeamMemberDetail>(`/api/staff/team/${roleSlug}/${selectedId}`),
+    enabled: Boolean(selectedId),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: (body: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phoneNumber: string;
+    }) =>
+      apiJson<TeamMemberDetail>(`/api/staff/team/${roleSlug}/${selectedId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (data) => {
+      void qc.setQueryData(['staff', 'team', roleSlug, selectedId], data);
+      void qc.invalidateQueries({ queryKey: ['staff', 'team', roleSlug] });
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () =>
+      apiJson(`/api/staff/team/${roleSlug}/${selectedId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['staff', 'team', roleSlug] });
+      onDeleted();
+    },
+  });
+
+  if (detailQ.isPending)
+    return <p className="text-sm text-zinc-500">Loading…</p>;
+  if (detailQ.isError)
+    return (
+      <p className="text-sm text-red-400">{(detailQ.error as Error).message}</p>
+    );
+
+  const member = detailQ.data;
+  const inputCls =
+    'w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none';
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+        <h2 className="text-xl font-semibold text-zinc-50">{member.displayName}</h2>
+        <div className="mt-2 flex flex-wrap gap-3 text-sm text-zinc-500">
+          {member.email && <span>{member.email}</span>}
+          {member.phoneNumber && <span>{member.phoneNumber}</span>}
+          <span className="font-mono text-xs">ID {member.id}</span>
+        </div>
+      </div>
+
+      {/* Profile form */}
+      <form
+        key={member.id}
+        className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-900/30 p-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const fd = new FormData(e.currentTarget);
+          updateMut.mutate({
+            firstName: String(fd.get('first_name') ?? ''),
+            lastName: String(fd.get('last_name') ?? ''),
+            email: String(fd.get('email') ?? ''),
+            phoneNumber: String(fd.get('phone_number') ?? ''),
+          });
+        }}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="text-xs text-zinc-500">First name</span>
+            <input
+              name="first_name"
+              defaultValue={member.firstName ?? ''}
+              className={inputCls}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-zinc-500">Last name</span>
+            <input
+              name="last_name"
+              defaultValue={member.lastName ?? ''}
+              className={inputCls}
+            />
+          </label>
+        </div>
+        <label className="block space-y-1">
+          <span className="text-xs text-zinc-500">Email</span>
+          <input
+            name="email"
+            type="email"
+            defaultValue={member.email ?? ''}
+            className={inputCls}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs text-zinc-500">Phone</span>
+          <input
+            name="phone_number"
+            defaultValue={member.phoneNumber ?? ''}
+            className={inputCls}
+          />
+        </label>
+        {updateMut.isError && (
+          <p className="text-xs text-red-400">{(updateMut.error as Error).message}</p>
+        )}
+        {updateMut.isSuccess && (
+          <p className="text-xs text-emerald-500">Saved.</p>
+        )}
+        <div className="flex flex-wrap gap-3 pt-1">
+          <button
+            type="submit"
+            disabled={updateMut.isPending}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {updateMut.isPending ? 'Saving…' : 'Save changes'}
+          </button>
+          <button
+            type="button"
+            disabled={deleteMut.isPending}
+            onClick={() => {
+              if (window.confirm('Delete this user? This cannot be undone.')) {
+                deleteMut.mutate();
+              }
+            }}
+            className="rounded-lg border border-red-900/50 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-950/40 disabled:opacity-50"
+          >
+            {deleteMut.isPending ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+        {deleteMut.isError && (
+          <p className="text-xs text-red-400">{(deleteMut.error as Error).message}</p>
+        )}
+      </form>
+    </div>
   );
 }
 
@@ -545,8 +699,6 @@ function StaffTeamListPage({
     [q.isSuccess, q.data, filter],
   );
 
-  const selected = q.isSuccess ? q.data.items.find((u) => u.id === selectedId) : undefined;
-
   const createMut = useMutation({
     mutationFn: (body: {
       firstName: string;
@@ -562,35 +714,6 @@ function StaffTeamListPage({
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['staff', 'team', roleSlug] });
       setShowCreate(false);
-    },
-  });
-
-  const updateMut = useMutation({
-    mutationFn: (args: {
-      id: string;
-      firstName: string;
-      lastName: string;
-      email: string;
-    }) =>
-      apiJson(`/api/staff/team/${roleSlug}/${args.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          firstName: args.firstName,
-          lastName: args.lastName,
-          email: args.email,
-        }),
-      }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['staff', 'team', roleSlug] });
-    },
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (id: string) =>
-      apiJson(`/api/staff/team/${roleSlug}/${id}`, { method: 'DELETE' }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['staff', 'team', roleSlug] });
-      setSelectedId(null);
     },
   });
 
@@ -723,78 +846,13 @@ function StaffTeamListPage({
           </StaffRecordListPanel>
         }
         detail={
-          selected ? (
-            <div className="mx-auto max-w-lg space-y-4">
-              <h2 className="text-xl font-semibold text-zinc-50">{selected.displayName}</h2>
-              <form
-                className="space-y-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const fd = new FormData(e.currentTarget);
-                  updateMut.mutate({
-                    id: selected.id,
-                    firstName: String(fd.get('first_name') ?? ''),
-                    lastName: String(fd.get('last_name') ?? ''),
-                    email: String(fd.get('email') ?? ''),
-                  });
-                }}
-              >
-                <label className="block space-y-1">
-                  <span className="text-xs text-zinc-500">First name</span>
-                  <input
-                    name="first_name"
-                    key={selected.id}
-                    defaultValue={selected.firstName ?? ''}
-                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-xs text-zinc-500">Last name</span>
-                  <input
-                    name="last_name"
-                    defaultValue={selected.lastName ?? ''}
-                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-xs text-zinc-500">Email</span>
-                  <input
-                    name="email"
-                    type="email"
-                    defaultValue={selected.email ?? ''}
-                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
-                  />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="submit"
-                    disabled={updateMut.isPending}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                  >
-                    {updateMut.isPending ? 'Saving…' : 'Save'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={deleteMut.isPending}
-                    onClick={() => {
-                      if (window.confirm('Delete this user? This cannot be undone.')) {
-                        deleteMut.mutate(selected.id);
-                      }
-                    }}
-                    className="rounded-lg border border-red-900 px-4 py-2 text-sm text-red-400 hover:border-red-700 disabled:opacity-50"
-                  >
-                    {deleteMut.isPending ? 'Deleting…' : 'Delete'}
-                  </button>
-                </div>
-                {updateMut.isError && (
-                  <p className="text-xs text-red-400">{(updateMut.error as Error).message}</p>
-                )}
-                {deleteMut.isError && (
-                  <p className="text-xs text-red-400">{(deleteMut.error as Error).message}</p>
-                )}
-              </form>
-              <p className="font-mono text-xs text-zinc-500">ID {selected.id}</p>
-            </div>
+          selectedId ? (
+            <TeamMemberDetailPanel
+              key={selectedId}
+              selectedId={selectedId}
+              roleSlug={roleSlug}
+              onDeleted={() => setSelectedId(null)}
+            />
           ) : (
             <StaffRecordPlaceholder message="Select a user from the list." />
           )

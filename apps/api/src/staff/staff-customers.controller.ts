@@ -438,6 +438,117 @@ export class StaffCustomersController {
     return { ok: true };
   }
 
+  @Get(':id/appointments')
+  async listAppointments(@Req() req: RequestWithStaff, @Param('id') id: string) {
+    if (!canView(req.staffUser.permissions, 'customers')) {
+      throw new ForbiddenException();
+    }
+    await this.assertCustomerDirectoryAccess(req);
+    const uid = await this.assertCustomerUser(id);
+
+    const rows = await this.prisma.appointment.findMany({
+      where: { idUsersCustomer: uid, isUnavailability: 0 },
+      orderBy: { startDatetime: 'desc' },
+      take: 200,
+      include: {
+        service: { select: { name: true, duration: true } },
+        provider: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    const now = new Date();
+    return {
+      items: rows.map((a) => {
+        const end = a.endDatetime;
+        const start = a.startDatetime;
+        let status: string;
+        if (end && end < now) status = 'Completed';
+        else if (start && start > now) status = 'Booked';
+        else status = 'In progress';
+
+        return {
+          id: a.id.toString(),
+          startDatetime: start?.toISOString() ?? null,
+          endDatetime: end?.toISOString() ?? null,
+          serviceName: a.service?.name ?? null,
+          providerName:
+            [a.provider?.firstName, a.provider?.lastName]
+              .filter(Boolean)
+              .join(' ') || null,
+          status,
+          hash: a.hash ?? null,
+        };
+      }),
+    };
+  }
+
+  @Get(':id/billing')
+  async listBilling(@Req() req: RequestWithStaff, @Param('id') id: string) {
+    if (!canView(req.staffUser.permissions, 'customers')) {
+      throw new ForbiddenException();
+    }
+    await this.assertCustomerDirectoryAccess(req);
+    const uid = await this.assertCustomerUser(id);
+
+    const payments = await this.prisma.appointmentPayment.findMany({
+      where: { appointment: { idUsersCustomer: uid } },
+      orderBy: { id: 'desc' },
+      take: 100,
+      include: {
+        appointment: { include: { service: { select: { name: true } } } },
+      },
+    });
+
+    return {
+      items: payments.map((p) => ({
+        id: p.id.toString(),
+        createDatetime: p.createDatetime?.toISOString() ?? null,
+        amount: p.amount != null ? p.amount.toString() : null,
+        currency: p.currency ?? null,
+        status: p.status,
+        serviceName: p.appointment?.service?.name ?? null,
+        appointmentId: p.idAppointments.toString(),
+      })),
+    };
+  }
+
+  @Get(':id/forms')
+  async listForms(@Req() req: RequestWithStaff, @Param('id') id: string) {
+    if (!canView(req.staffUser.permissions, 'customers')) {
+      throw new ForbiddenException();
+    }
+    await this.assertCustomerDirectoryAccess(req);
+    const uid = await this.assertCustomerUser(id);
+
+    const [assignments, submissions] = await Promise.all([
+      this.prisma.formAssignment.findMany({
+        where: { roleSlug: 'customer' },
+        include: { form: { select: { id: true, name: true, isActive: true } } },
+      }),
+      this.prisma.formSubmission.findMany({
+        where: { idUsers: uid },
+        select: { idForms: true, submittedAt: true },
+      }),
+    ]);
+
+    const submittedFormIds = new Set(submissions.map((s) => s.idForms));
+    const submittedAtByForm = new Map<number, string | null>();
+    for (const s of submissions) {
+      submittedAtByForm.set(s.idForms, s.submittedAt?.toISOString() ?? null);
+    }
+
+    return {
+      items: assignments
+        .filter((a) => a.form.isActive === 1)
+        .map((a) => ({
+          id: a.form.id,
+          name: a.form.name,
+          completed: submittedFormIds.has(a.form.id),
+          submittedAt: submittedAtByForm.get(a.form.id) ?? null,
+        })),
+    };
+  }
+
   @Get(':id')
   async one(@Req() req: RequestWithStaff, @Param('id') id: string) {
     if (!canView(req.staffUser.permissions, 'customers')) {

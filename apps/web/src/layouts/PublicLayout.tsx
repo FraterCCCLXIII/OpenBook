@@ -47,7 +47,7 @@ export function PublicLayout() {
   const companyName = settings.company_name;
   const companyColor = settings.company_color?.trim();
   const theme = settings.theme ?? 'default';
-  const showLanguage = settings.display_language_selector !== 'false';
+  const showLanguage = settings.display_language_selector !== '0';
   const showLoginButton = settings.display_login_button !== '0';
 
   useEffect(() => {
@@ -59,9 +59,9 @@ export function PublicLayout() {
 
   useEffect(() => {
     if (companyColor && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(companyColor)) {
-      document.documentElement.style.setProperty('--ob-brand', companyColor);
+      document.documentElement.style.setProperty('--color-brand', companyColor);
     } else {
-      document.documentElement.style.removeProperty('--ob-brand');
+      document.documentElement.style.removeProperty('--color-brand');
     }
   }, [companyColor]);
 

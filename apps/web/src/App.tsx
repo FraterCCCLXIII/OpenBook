@@ -124,14 +124,19 @@ export default function App() {
             </Route>
             <Route path="/staff/secretaries" element={<StaffSecretariesPage />} />
             <Route path="/staff/admins" element={<StaffAdminsPage />} />
-            <Route path="/staff/forms" element={<StaffFormsPage />} />
-            <Route path="/staff/custom-fields" element={<StaffCustomFieldsPage />} />
             <Route path="/staff/webhooks" element={<StaffWebhooksPage />} />
-            <Route path="/staff/tools" element={<StaffToolsPage />} />
-            <Route path="/staff/consents-report" element={<StaffConsentsReportPage />} />
+            {/* Legacy redirects so old bookmarks still work */}
+            <Route path="/staff/forms" element={<Navigate to="/staff/settings/forms" replace />} />
+            <Route path="/staff/custom-fields" element={<Navigate to="/staff/settings/custom-fields" replace />} />
+            <Route path="/staff/tools" element={<Navigate to="/staff/settings/tools" replace />} />
+            <Route path="/staff/consents-report" element={<Navigate to="/staff/settings/consents" replace />} />
             <Route path="/staff/settings" element={<StaffSettingsLayout />}>
               <Route index element={<Navigate to="general" replace />} />
               <Route path="integrations" element={<StaffSettingsIntegrationsPage />} />
+              <Route path="forms" element={<StaffFormsPage />} />
+              <Route path="custom-fields" element={<StaffCustomFieldsPage />} />
+              <Route path="tools" element={<StaffToolsPage />} />
+              <Route path="consents" element={<StaffConsentsReportPage />} />
               <Route path=":section" element={<StaffSettingsSectionPage />} />
             </Route>
             <Route path="/staff/account" element={<StaffAccountPage />} />

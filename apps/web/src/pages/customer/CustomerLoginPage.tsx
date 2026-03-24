@@ -7,7 +7,7 @@ import { OtpInput } from '../../components/ui/OtpInput';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type LoginMode = 'otp' | 'password' | 'none';
+type LoginMode = 'otp' | 'password' | 'both' | 'none';
 type OtpStep = 'email' | 'code';
 
 async function fetchPublicSettings(): Promise<Record<string, string>> {
@@ -256,6 +256,48 @@ function PasswordFlow({ onSuccess }: { onSuccess: (isNew: boolean) => void }) {
   );
 }
 
+// ─── Both-mode tab switcher ───────────────────────────────────────────────────
+
+function BothFlow({ onSuccess }: { onSuccess: (isNew: boolean) => void }) {
+  const [method, setMethod] = useState<'otp' | 'password'>('otp');
+
+  return (
+    <>
+      <div className="flex border-b border-slate-100 mb-1">
+        <button
+          type="button"
+          onClick={() => setMethod('otp')}
+          className={[
+            'flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            method === 'otp'
+              ? 'border-[--color-brand] text-[--color-brand]'
+              : 'border-transparent text-slate-400 hover:text-slate-600',
+          ].join(' ')}
+        >
+          Email Code
+        </button>
+        <button
+          type="button"
+          onClick={() => setMethod('password')}
+          className={[
+            'flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            method === 'password'
+              ? 'border-[--color-brand] text-[--color-brand]'
+              : 'border-transparent text-slate-400 hover:text-slate-600',
+          ].join(' ')}
+        >
+          Password
+        </button>
+      </div>
+      {method === 'otp' ? (
+        <OtpFlow onSuccess={onSuccess} />
+      ) : (
+        <PasswordFlow onSuccess={onSuccess} />
+      )}
+    </>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function CustomerLoginPage() {
@@ -269,14 +311,17 @@ export function CustomerLoginPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const loginMode: LoginMode =
-    (settings.customer_login_mode as LoginMode | undefined) ?? 'otp';
+  const portalEnabled = settings.customer_login_enabled !== '0';
+  const loginMode: LoginMode = portalEnabled
+    ? ((settings.customer_login_mode as LoginMode | undefined) ?? 'otp')
+    : 'none';
 
   function onSuccess(isNew: boolean) {
-    // New accounts go straight to the booking wizard; returning customers see their dashboard
     const destination = from ?? (isNew ? '/book' : '/customer/dashboard');
     navigate(destination, { replace: true });
   }
+
+  const showCreateAccount = loginMode === 'password' || loginMode === 'both';
 
   return (
     <div className="flex justify-center">
@@ -285,11 +330,14 @@ export function CustomerLoginPage() {
           <div className="frame-container">
             {loginMode === 'otp' && <OtpFlow onSuccess={onSuccess} />}
             {loginMode === 'password' && <PasswordFlow onSuccess={onSuccess} />}
+            {loginMode === 'both' && <BothFlow onSuccess={onSuccess} />}
             {loginMode === 'none' && (
               <>
-                <h2 className="frame-title">Start your booking</h2>
+                <h2 className="frame-title">Customer portal</h2>
                 <div className="frame-content space-y-4 text-center">
-                  <p className="text-sm text-slate-500">No sign-in required.</p>
+                  <p className="text-sm text-slate-500">
+                    The customer portal is currently disabled.
+                  </p>
                   <Link to="/book" className="booking-button block">
                     Book an appointment
                   </Link>
@@ -299,19 +347,21 @@ export function CustomerLoginPage() {
           </div>
         </div>
 
-        {/* Frame footer — links */}
-        <div id="frame-footer" className="mt-6 text-center">
-          <div className="flex justify-center gap-4 text-sm text-slate-500">
-            <Link to="/book" className="booking-link">
-              Book without signing in
-            </Link>
-            {loginMode === 'password' && (
-              <Link to="/customer/register" className="booking-link">
-                Create account
+        {/* Frame footer */}
+        {loginMode !== 'none' && (
+          <div id="frame-footer" className="mt-6 text-center">
+            <div className="flex justify-center gap-4 text-sm text-slate-500">
+              <Link to="/book" className="booking-link">
+                Book without signing in
               </Link>
-            )}
+              {showCreateAccount && (
+                <Link to="/customer/register" className="booking-link">
+                  Create account
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

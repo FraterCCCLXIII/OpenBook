@@ -48,6 +48,7 @@ export class StaffProvidersController {
         firstName: true,
         lastName: true,
         email: true,
+        phoneNumber: true,
         timezone: true,
         userSettings: {
           select: {
@@ -69,6 +70,7 @@ export class StaffProvidersController {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      phoneNumber: user.phoneNumber,
       timezone: user.timezone,
       workingPlan: user.userSettings?.workingPlan ?? null,
       googleSync: (user.userSettings?.googleSync ?? 0) === 1,
@@ -85,6 +87,9 @@ export class StaffProvidersController {
     @Param('id') id: string,
     @Body()
     body: {
+      first_name?: string;
+      last_name?: string;
+      phone_number?: string;
       working_plan?: string;
       timezone?: string;
       services?: string[];
@@ -103,12 +108,14 @@ export class StaffProvidersController {
     const existing = await this.prisma.user.findUnique({ where: { id: uid } });
     if (!existing) throw new NotFoundException();
 
-    // Update timezone on user
-    if (body.timezone !== undefined) {
-      await this.prisma.user.update({
-        where: { id: uid },
-        data: { timezone: body.timezone },
-      });
+    // Update profile fields + timezone on user
+    const profileUpdate: Record<string, unknown> = {};
+    if (body.first_name !== undefined) profileUpdate.firstName = body.first_name.trim() || null;
+    if (body.last_name !== undefined) profileUpdate.lastName = body.last_name.trim() || null;
+    if (body.phone_number !== undefined) profileUpdate.phoneNumber = body.phone_number.trim() || null;
+    if (body.timezone !== undefined) profileUpdate.timezone = body.timezone;
+    if (Object.keys(profileUpdate).length > 0) {
+      await this.prisma.user.update({ where: { id: uid }, data: profileUpdate });
     }
 
     // Update working plan in userSettings
@@ -140,5 +147,49 @@ export class StaffProvidersController {
     }
 
     return this.one(req, id);
+  }
+
+  @Get(':id/appointments')
+  async listAppointments(@Req() req: RequestWithStaff, @Param('id') id: string) {
+    if (!canView(req.staffUser.permissions, 'appointments')) {
+      throw new ForbiddenException();
+    }
+    let uid: bigint;
+    try {
+      uid = BigInt(id);
+    } catch {
+      throw new NotFoundException();
+    }
+
+    const rows = await this.prisma.appointment.findMany({
+      where: { idUsersProvider: uid, isUnavailability: 0 },
+      orderBy: { startDatetime: 'desc' },
+      take: 100,
+      include: {
+        service: { select: { name: true } },
+        customer: { select: { firstName: true, lastName: true } },
+      },
+    });
+
+    const now = new Date();
+    return {
+      items: rows.map((a) => {
+        const end = a.endDatetime;
+        const start = a.startDatetime;
+        let status: string;
+        if (end && end < now) status = 'Completed';
+        else if (start && start > now) status = 'Booked';
+        else status = 'In progress';
+        return {
+          id: a.id.toString(),
+          startDatetime: start?.toISOString() ?? null,
+          endDatetime: end?.toISOString() ?? null,
+          serviceName: a.service?.name ?? null,
+          customerName:
+            [a.customer?.firstName, a.customer?.lastName].filter(Boolean).join(' ') || null,
+          status,
+        };
+      }),
+    };
   }
 }
