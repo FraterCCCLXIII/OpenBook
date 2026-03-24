@@ -14,7 +14,7 @@ import {
   Settings,
   Shield,
 } from 'lucide-react';
-import defaultLogoUrl from '/favicon.svg';
+import { OpenBookLogoMark } from '../components/OpenBookLogoMark';
 import { useAuth } from '../auth/AuthContext';
 
 async function fetchPublicSettings(): Promise<Record<string, string>> {
@@ -107,13 +107,17 @@ export function PublicLayout() {
           </div>
 
           {/* Center: Company logo */}
-          <div className="flex w-1/3 justify-center">
+          <div className="flex w-1/3 justify-center text-slate-900">
             <Link to="/" aria-label={companyName ?? t('app_name')}>
-              <img
-                src={companyLogo ?? defaultLogoUrl}
-                alt={companyName ?? t('app_name')}
-                className="block h-8 w-auto"
-              />
+              {companyLogo ? (
+                <img
+                  src={companyLogo}
+                  alt={companyName ?? t('app_name')}
+                  className="block h-8 w-auto"
+                />
+              ) : (
+                <OpenBookLogoMark className="block h-8 w-auto" />
+              )}
             </Link>
           </div>
 

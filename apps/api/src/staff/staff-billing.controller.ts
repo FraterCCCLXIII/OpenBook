@@ -29,9 +29,21 @@ export class StaffBillingController {
       throw new ForbiddenException();
     }
     const webhookEvents = await this.prisma.stripeWebhookEvent.count();
-    const totalPayments = await this.prisma.appointmentPayment.count({
-      where: { status: 'succeeded' },
-    });
+    const [succeededCount, pendingCount, refundedCount, failedCount] =
+      await Promise.all([
+        this.prisma.appointmentPayment.count({
+          where: { status: 'succeeded' },
+        }),
+        this.prisma.appointmentPayment.count({
+          where: { status: 'pending' },
+        }),
+        this.prisma.appointmentPayment.count({
+          where: { status: 'refunded' },
+        }),
+        this.prisma.appointmentPayment.count({
+          where: { status: 'failed' },
+        }),
+      ]);
     return {
       ok: true,
       stripe: {
@@ -44,7 +56,12 @@ export class StaffBillingController {
         redisConfigured: Boolean(process.env.REDIS_URL),
       },
       payments: {
-        succeededCount: totalPayments,
+        succeededCount,
+        pendingCount,
+        refundedCount,
+        failedCount,
+        totalCount:
+          succeededCount + pendingCount + refundedCount + failedCount,
       },
       message: 'Stripe payments tracked in ea_appointment_payments.',
     };

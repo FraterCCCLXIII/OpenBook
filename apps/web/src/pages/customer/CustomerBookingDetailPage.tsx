@@ -12,6 +12,14 @@ type Appt = {
   notes: string | null;
   serviceName: string | null;
   providerName: string | null;
+  servicePrice?: string | null;
+  serviceCurrency?: string | null;
+  latestPayment?: {
+    status: string;
+    amount: string | null;
+    currency: string | null;
+  } | null;
+  canPayWithStripe?: boolean;
 };
 
 function toLocalDatetimeValue(iso: string | null): string {
@@ -71,6 +79,21 @@ export function CustomerBookingDetailPage() {
       void qc.setQueryData(['customer', 'appointments', id], data);
       void qc.invalidateQueries({ queryKey: ['customer', 'appointments'] });
       setEditing(false);
+    },
+  });
+
+  const checkout = useMutation({
+    mutationFn: () =>
+      apiJson<{ url: string | null }>('/api/stripe/checkout', {
+        method: 'POST',
+        body: JSON.stringify({
+          appointmentId: id,
+          successUrl: `${window.location.origin}/customer/bookings/${id}`,
+          cancelUrl: `${window.location.origin}/customer/bookings/${id}`,
+        }),
+      }),
+    onSuccess: (data) => {
+      if (data.url) window.location.href = data.url;
     },
   });
 
@@ -157,11 +180,46 @@ export function CustomerBookingDetailPage() {
                   </dd>
                 </div>
               )}
+
+              {(q.data.servicePrice || q.data.latestPayment) && (
+                <div className="border-t border-slate-100 pt-3">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Payment
+                  </dt>
+                  <dd className="mt-1 text-sm text-slate-700">
+                    {q.data.servicePrice && (
+                      <span>
+                        Amount: {q.data.servicePrice}{' '}
+                        {(q.data.serviceCurrency ?? '').toUpperCase()}
+                      </span>
+                    )}
+                    {q.data.latestPayment && (
+                      <span className="ml-2 text-slate-600">
+                        Status: {q.data.latestPayment.status}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+              )}
             </dl>
           </Card>
 
           {!editing ? (
             <div className="flex flex-wrap gap-3">
+              {q.data.canPayWithStripe && (
+                <Button
+                  type="button"
+                  disabled={checkout.isPending}
+                  onClick={() => checkout.mutate()}
+                >
+                  {checkout.isPending ? 'Redirecting…' : 'Pay with Stripe'}
+                </Button>
+              )}
+              {checkout.isError && (
+                <p className="w-full text-sm text-red-600" role="alert">
+                  {(checkout.error as Error).message}
+                </p>
+              )}
               <Button
                 variant="outline"
                 onClick={() => openEdit(q.data)}

@@ -35,8 +35,9 @@ export function StaffRecordListPanel({
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-2 px-4 pt-4">
         <h2 className="text-xl font-semibold tracking-tight text-zinc-50">{title}</h2>
-        {addButton && (
-          <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 items-center gap-2">
+          {headerExtra}
+          {addButton && (
             <button
               type="button"
               onClick={addButton.onClick}
@@ -44,11 +45,9 @@ export function StaffRecordListPanel({
             >
               {addButton.label}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-
-      {headerExtra}
 
       <form className="mb-3 shrink-0 px-4 pt-3" onSubmit={handleSubmit}>
         <div className="flex overflow-hidden rounded-lg border border-zinc-700">

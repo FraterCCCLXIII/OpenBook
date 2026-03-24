@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckSquare, ChevronRight } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
+import { csrfHeaders, ensureCsrfToken } from '../lib/csrf';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -225,11 +226,12 @@ export function BookWizard() {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      await ensureCsrfToken();
       const dateStr = `${selYear}-${pad2(selMonth + 1)}-${pad2(selDay)}`;
       const res = await fetch('/api/booking/appointments', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
         body: JSON.stringify({
           service_id: serviceId,
           provider_id: providerId,

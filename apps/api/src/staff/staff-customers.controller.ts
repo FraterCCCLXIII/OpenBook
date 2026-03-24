@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   BadRequestException,
   Body,
@@ -11,8 +14,12 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   StaffAuthGuard,
@@ -20,10 +27,42 @@ import {
 } from '../auth/staff-auth.guard';
 import { can, canView } from '../auth/permissions.ea';
 
+function uploadRoot(): string {
+  return process.env.UPLOAD_DIR?.trim() || join(process.cwd(), 'uploads');
+}
+
+function ensureUploadDir(dir: string) {
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+}
+
 @Controller('staff/customers')
 @UseGuards(StaffAuthGuard)
 export class StaffCustomersController {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async assertCustomerUser(id: string): Promise<bigint> {
+    const customerRole = await this.prisma.role.findFirst({
+      where: { slug: 'customer' },
+    });
+    if (!customerRole) {
+      throw new NotFoundException();
+    }
+    let uid: bigint;
+    try {
+      uid = BigInt(id);
+    } catch {
+      throw new NotFoundException();
+    }
+    const u = await this.prisma.user.findFirst({
+      where: { id: uid, idRoles: customerRole.id },
+    });
+    if (!u) {
+      throw new NotFoundException();
+    }
+    return uid;
+  }
 
   @Get()
   async list(
@@ -77,6 +116,287 @@ export class StaffCustomersController {
     };
   }
 
+  @Post(':id/notes')
+  async addNote(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Body() body: { notes?: string },
+  ) {
+    if (!can(req.staffUser.permissions, 'customers', 'edit')) {
+      throw new ForbiddenException();
+    }
+    const uid = await this.assertCustomerUser(id);
+    const text = body.notes?.trim();
+    if (!text) {
+      throw new BadRequestException('notes is required');
+    }
+    const row = await this.prisma.customerNote.create({
+      data: {
+        idUsers: uid,
+        notes: text,
+      },
+    });
+    return {
+      id: row.id.toString(),
+      notes: row.notes,
+      createDatetime: row.createDatetime?.toISOString() ?? null,
+    };
+  }
+
+  @Delete(':id/notes/:noteId')
+  async removeNote(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Param('noteId') noteId: string,
+  ) {
+    if (!can(req.staffUser.permissions, 'customers', 'edit')) {
+      throw new ForbiddenException();
+    }
+    const uid = await this.assertCustomerUser(id);
+    let nid: bigint;
+    try {
+      nid = BigInt(noteId);
+    } catch {
+      throw new NotFoundException();
+    }
+    const res = await this.prisma.customerNote.deleteMany({
+      where: { id: nid, idUsers: uid },
+    });
+    if (res.count === 0) {
+      throw new NotFoundException();
+    }
+    return { ok: true };
+  }
+
+  @Post(':id/alerts')
+  async addAlert(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Body() body: { message?: string },
+  ) {
+    if (!can(req.staffUser.permissions, 'customers', 'edit')) {
+      throw new ForbiddenException();
+    }
+    const uid = await this.assertCustomerUser(id);
+    const message = body.message?.trim();
+    if (!message) {
+      throw new BadRequestException('message is required');
+    }
+    const row = await this.prisma.customerAlert.create({
+      data: { idUsers: uid, message, isRead: 0 },
+    });
+    return {
+      id: row.id.toString(),
+      message: row.message,
+      isRead: row.isRead,
+      createDatetime: row.createDatetime?.toISOString() ?? null,
+    };
+  }
+
+  @Patch(':id/alerts/:alertId')
+  async patchAlert(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Param('alertId') alertId: string,
+    @Body() body: { message?: string; is_read?: number },
+  ) {
+    if (!can(req.staffUser.permissions, 'customers', 'edit')) {
+      throw new ForbiddenException();
+    }
+    const uid = await this.assertCustomerUser(id);
+    let aid: bigint;
+    try {
+      aid = BigInt(alertId);
+    } catch {
+      throw new NotFoundException();
+    }
+    const existing = await this.prisma.customerAlert.findFirst({
+      where: { id: aid, idUsers: uid },
+    });
+    if (!existing) {
+      throw new NotFoundException();
+    }
+    const row = await this.prisma.customerAlert.update({
+      where: { id: aid },
+      data: {
+        ...(body.message !== undefined ? { message: body.message } : {}),
+        ...(body.is_read !== undefined ? { isRead: body.is_read ? 1 : 0 } : {}),
+      },
+    });
+    return {
+      id: row.id.toString(),
+      message: row.message,
+      isRead: row.isRead,
+    };
+  }
+
+  @Delete(':id/alerts/:alertId')
+  async removeAlert(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Param('alertId') alertId: string,
+  ) {
+    if (!can(req.staffUser.permissions, 'customers', 'edit')) {
+      throw new ForbiddenException();
+    }
+    const uid = await this.assertCustomerUser(id);
+    let aid: bigint;
+    try {
+      aid = BigInt(alertId);
+    } catch {
+      throw new NotFoundException();
+    }
+    const res = await this.prisma.customerAlert.deleteMany({
+      where: { id: aid, idUsers: uid },
+    });
+    if (res.count === 0) {
+      throw new NotFoundException();
+    }
+    return { ok: true };
+  }
+
+  @Patch(':id/custom-fields')
+  async patchCustomFields(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Body() body: { values?: Record<string, string> },
+  ) {
+    if (!can(req.staffUser.permissions, 'customers', 'edit')) {
+      throw new ForbiddenException();
+    }
+    const uid = await this.assertCustomerUser(id);
+    const values = body.values ?? {};
+    for (const [fieldIdStr, raw] of Object.entries(values)) {
+      let fieldId: number;
+      try {
+        fieldId = Number.parseInt(fieldIdStr, 10);
+      } catch {
+        throw new BadRequestException(`Invalid field id: ${fieldIdStr}`);
+      }
+      const field = await this.prisma.customField.findFirst({
+        where: { id: fieldId, isActive: 1 },
+      });
+      if (!field) {
+        throw new BadRequestException(`Unknown custom field: ${fieldId}`);
+      }
+      const value = raw ?? '';
+      const existing = await this.prisma.customerCustomFieldValue.findFirst({
+        where: { idUsers: uid, idCustomFields: fieldId },
+      });
+      if (existing) {
+        await this.prisma.customerCustomFieldValue.update({
+          where: { id: existing.id },
+          data: { value },
+        });
+      } else {
+        await this.prisma.customerCustomFieldValue.create({
+          data: {
+            idUsers: uid,
+            idCustomFields: fieldId,
+            value,
+          },
+        });
+      }
+    }
+    return { ok: true };
+  }
+
+  @Get(':id/files')
+  async listFiles(@Req() req: RequestWithStaff, @Param('id') id: string) {
+    if (!canView(req.staffUser.permissions, 'customers')) {
+      throw new ForbiddenException();
+    }
+    const uid = await this.assertCustomerUser(id);
+    const rows = await this.prisma.userFile.findMany({
+      where: { idUsers: uid },
+      orderBy: { createDatetime: 'desc' },
+      take: 100,
+    });
+    return {
+      items: rows.map((f) => ({
+        id: f.id.toString(),
+        filename: f.filename,
+        originalName: f.originalName,
+        mimeType: f.mimeType,
+        sizeBytes: f.sizeBytes,
+        createdAt: f.createDatetime?.toISOString() ?? null,
+      })),
+    };
+  }
+
+  @Post(':id/files')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const dir = join(uploadRoot(), 'user-files');
+          ensureUploadDir(dir);
+          cb(null, dir);
+        },
+        filename: (_req, file, cb) => {
+          const ext = file.originalname.includes('.')
+            ? file.originalname.slice(file.originalname.lastIndexOf('.'))
+            : '';
+          cb(null, `${randomUUID()}${ext}`);
+        },
+      }),
+      limits: { fileSize: 15 * 1024 * 1024 },
+    }),
+  )
+  async uploadFile(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    if (!can(req.staffUser.permissions, 'customers', 'edit')) {
+      throw new ForbiddenException();
+    }
+    if (!file?.filename) {
+      throw new BadRequestException('file is required');
+    }
+    const uid = await this.assertCustomerUser(id);
+    await this.prisma.userFile.create({
+      data: {
+        idUsers: uid,
+        filename: file.filename,
+        originalName: file.originalname.slice(0, 500),
+        mimeType: (file.mimetype || 'application/octet-stream').slice(0, 128),
+        sizeBytes: Math.min(file.size, 2_000_000_000),
+      },
+    });
+    return { ok: true };
+  }
+
+  @Delete(':id/files/:fileId')
+  async deleteFile(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Param('fileId') fileId: string,
+  ) {
+    if (!can(req.staffUser.permissions, 'customers', 'edit')) {
+      throw new ForbiddenException();
+    }
+    const uid = await this.assertCustomerUser(id);
+    let fid: bigint;
+    try {
+      fid = BigInt(fileId);
+    } catch {
+      throw new NotFoundException();
+    }
+    const existing = await this.prisma.userFile.findFirst({
+      where: { id: fid, idUsers: uid },
+    });
+    if (!existing) throw new NotFoundException();
+    const pathOnDisk = join(uploadRoot(), 'user-files', existing.filename);
+    await this.prisma.userFile.delete({ where: { id: fid } });
+    try {
+      unlinkSync(pathOnDisk);
+    } catch {
+      /* ignore */
+    }
+    return { ok: true };
+  }
+
   @Get(':id')
   async one(@Req() req: RequestWithStaff, @Param('id') id: string) {
     if (!canView(req.staffUser.permissions, 'customers')) {
@@ -96,16 +416,73 @@ export class StaffCustomersController {
     }
     const u = await this.prisma.user.findFirst({
       where: { id: uid, idRoles: customerRole.id },
-      select: { id: true, firstName: true, lastName: true, email: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phoneNumber: true,
+        address: true,
+        city: true,
+        zipCode: true,
+      },
     });
     if (!u) {
       throw new NotFoundException();
     }
+
+    const [notes, alerts, customFields, valueRows] = await Promise.all([
+      this.prisma.customerNote.findMany({
+        where: { idUsers: uid },
+        orderBy: { createDatetime: 'desc' },
+        take: 50,
+      }),
+      this.prisma.customerAlert.findMany({
+        where: { idUsers: uid },
+        orderBy: { createDatetime: 'desc' },
+        take: 50,
+      }),
+      this.prisma.customField.findMany({
+        where: { isActive: 1 },
+        orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+      }),
+      this.prisma.customerCustomFieldValue.findMany({
+        where: { idUsers: uid },
+      }),
+    ]);
+
+    const valueByField = new Map<number, string>();
+    for (const v of valueRows) {
+      valueByField.set(v.idCustomFields, v.value ?? '');
+    }
+
     return {
       id: u.id.toString(),
       firstName: u.firstName,
       lastName: u.lastName,
       email: u.email,
+      phoneNumber: u.phoneNumber,
+      address: u.address,
+      city: u.city,
+      zipCode: u.zipCode,
+      notes: notes.map((n) => ({
+        id: n.id.toString(),
+        notes: n.notes,
+        createDatetime: n.createDatetime?.toISOString() ?? null,
+      })),
+      alerts: alerts.map((a) => ({
+        id: a.id.toString(),
+        message: a.message,
+        isRead: a.isRead,
+        createDatetime: a.createDatetime?.toISOString() ?? null,
+      })),
+      customFields: customFields.map((f) => ({
+        id: f.id,
+        name: f.name,
+        fieldType: f.fieldType,
+        isRequired: f.isRequired,
+        value: valueByField.get(f.id) ?? '',
+      })),
     };
   }
 
@@ -183,7 +560,16 @@ export class StaffCustomersController {
   async patch(
     @Req() req: RequestWithStaff,
     @Param('id') id: string,
-    @Body() body: { first_name?: string; last_name?: string; email?: string },
+    @Body()
+    body: {
+      first_name?: string;
+      last_name?: string;
+      email?: string;
+      phone_number?: string;
+      address?: string;
+      city?: string;
+      zip_code?: string;
+    },
   ) {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
@@ -227,6 +613,15 @@ export class StaffCustomersController {
             ? body.last_name.trim() || null
             : undefined,
         email: email !== undefined ? email || null : undefined,
+        phoneNumber:
+          body.phone_number !== undefined
+            ? body.phone_number.trim() || null
+            : undefined,
+        address:
+          body.address !== undefined ? body.address.trim() || null : undefined,
+        city: body.city !== undefined ? body.city.trim() || null : undefined,
+        zipCode:
+          body.zip_code !== undefined ? body.zip_code.trim() || null : undefined,
       },
     });
     if (email !== undefined && updated.email) {
@@ -240,6 +635,10 @@ export class StaffCustomersController {
       firstName: updated.firstName,
       lastName: updated.lastName,
       email: updated.email,
+      phoneNumber: updated.phoneNumber,
+      address: updated.address,
+      city: updated.city,
+      zipCode: updated.zipCode,
     };
   }
 }

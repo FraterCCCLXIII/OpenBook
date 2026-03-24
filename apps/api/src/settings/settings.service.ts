@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { LEGAL_PUBLIC_SETTING_NAMES } from '@openbook/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { canView, type PermissionsMap } from '../auth/permissions.ea';
 
@@ -38,6 +39,20 @@ export class SettingsService {
     const out: Record<string, string> = {};
     for (const r of rows) {
       if (r.name && r.value !== null && PUBLIC_SETTING_NAMES.has(r.name)) {
+        out[r.name] = r.value;
+      }
+    }
+    return out;
+  }
+
+  /** Terms / privacy / cookie copy for customer consents UX (no secrets). */
+  async getLegalPublicSettings(): Promise<Record<string, string>> {
+    const rows = await this.prisma.setting.findMany({
+      where: { name: { in: [...LEGAL_PUBLIC_SETTING_NAMES] } },
+    });
+    const out: Record<string, string> = {};
+    for (const r of rows) {
+      if (r.name && r.value !== null && LEGAL_PUBLIC_SETTING_NAMES.has(r.name)) {
         out[r.name] = r.value;
       }
     }

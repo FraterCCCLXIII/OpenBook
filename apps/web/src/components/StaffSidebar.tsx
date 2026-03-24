@@ -10,8 +10,10 @@ import {
   LayoutDashboard,
   List,
   LogOut,
+  MapPin,
   PanelLeft,
   ScrollText,
+  Shield,
   Tags,
   User,
   Users,
@@ -177,6 +179,22 @@ export function StaffSidebar() {
             collapsed={collapsed}
             label={t('customers')}
             icon={User}
+          />
+        )}
+        {canViewStaff(staff, 'customers') && (
+          <SidebarNavLink
+            to="/staff/tools"
+            collapsed={collapsed}
+            label="Tools"
+            icon={MapPin}
+          />
+        )}
+        {canViewStaff(staff, 'customers') && (
+          <SidebarNavLink
+            to="/staff/consents-report"
+            collapsed={collapsed}
+            label="Consents"
+            icon={Shield}
           />
         )}
         {canViewStaff(staff, 'system_settings') && (

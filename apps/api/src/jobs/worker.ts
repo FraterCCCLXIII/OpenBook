@@ -32,6 +32,19 @@ const worker = new Worker(
       await dispatchWebhooks(event, appointmentId);
     }
 
+    if (job.name === 'geonames-import') {
+      const data = job.data as { source?: string; countryCode?: string };
+      console.log(
+        `[openbook] geonames-import queued (source=${data.source ?? 'unknown'}, country=${data.countryCode ?? 'all'})`,
+      );
+      await prisma.auditLog.create({
+        data: {
+          action: 'geonames_import_job',
+          metadata: JSON.stringify(data ?? {}),
+        },
+      });
+    }
+
     await Promise.resolve();
   },
   {

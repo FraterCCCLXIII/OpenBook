@@ -25,6 +25,11 @@ export class SettingsController {
   getPublic() {
     return this.settings.getPublicSettings();
   }
+
+  @Get('legal')
+  getLegalPublic() {
+    return this.settings.getLegalPublicSettings();
+  }
 }
 
 @Controller('staff/settings')

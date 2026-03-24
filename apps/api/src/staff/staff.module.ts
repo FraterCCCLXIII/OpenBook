@@ -14,6 +14,8 @@ import { StaffSystemController } from './staff-system.controller';
 import { StaffTeamController } from './staff-team.controller';
 import { StaffWebhooksController } from './staff-webhooks.controller';
 import { StaffProvidersController } from './staff-providers.controller';
+import { StaffConsentsController } from './staff-consents.controller';
+import { StaffToolsController } from './staff-tools.controller';
 
 @Module({
   imports: [AuthModule, PrismaModule],
@@ -31,6 +33,8 @@ import { StaffProvidersController } from './staff-providers.controller';
     StaffProviderBookingsController,
     StaffWebhooksController,
     StaffProvidersController,
+    StaffConsentsController,
+    StaffToolsController,
   ],
 })
 export class StaffModule {}

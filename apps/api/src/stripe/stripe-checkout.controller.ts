@@ -14,6 +14,7 @@ import {
   type RequestWithCustomer,
 } from '../auth/customer-auth.guard';
 
+/** Refunds: staff-only (`POST /api/staff/billing/refund/:paymentId`). */
 @Controller('stripe')
 export class StripeCheckoutController {
   constructor(private readonly prisma: PrismaService) {}
@@ -89,47 +90,5 @@ export class StripeCheckoutController {
     });
 
     return { sessionId: session.id, url: session.url };
-  }
-
-  /** Refund a payment by appointment ID. Staff-only: done in staff-billing controller. */
-  @Post('refund')
-  @UseGuards(CustomerAuthGuard)
-  async refund(
-    @Req() req: RequestWithCustomer,
-    @Body() body: { appointmentId?: string },
-  ) {
-    const apiKey = process.env.STRIPE_SECRET_KEY;
-    if (!apiKey) {
-      throw new ServiceUnavailableException('Stripe is not configured');
-    }
-    if (!body.appointmentId) {
-      throw new BadRequestException('appointmentId is required');
-    }
-    const appointmentId = BigInt(body.appointmentId);
-    const payment = await this.prisma.appointmentPayment.findFirst({
-      where: {
-        idAppointments: appointmentId,
-        status: 'succeeded',
-        stripePaymentIntentId: { not: null },
-      },
-      orderBy: { id: 'desc' },
-    });
-    if (!payment?.stripePaymentIntentId) {
-      throw new BadRequestException(
-        'No succeeded payment found for this appointment',
-      );
-    }
-
-    const stripe = new Stripe(apiKey);
-    const refund = await stripe.refunds.create({
-      payment_intent: payment.stripePaymentIntentId,
-    });
-
-    await this.prisma.appointmentPayment.update({
-      where: { id: payment.id },
-      data: { status: 'refunded' },
-    });
-
-    return { ok: true, refundId: refund.id };
   }
 }

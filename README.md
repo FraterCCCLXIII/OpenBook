@@ -114,6 +114,8 @@ Anonymous booking: `GET /api/booking/services`, `GET /api/booking/services/:id/p
 | `REDIS_URL` | No | Redis URL for BullMQ job queues |
 | `STRIPE_SECRET_KEY` | No | Stripe secret key for payments |
 | `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook signing secret |
+| `OPENBOOK_CSRF_ENABLED` | No | Set `true` or `1` to require `X-CSRF-Token` + cookie from `GET /api/auth/csrf-token` on mutating requests (enable `VITE_OPENBOOK_CSRF=true` in the web app). |
+| `UPLOAD_DIR` | No | Absolute or relative path for customer file uploads (`user-files` subfolder); defaults to `uploads` under the API cwd. |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth client ID (calendar sync) |
 | `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
 | `GOOGLE_REDIRECT_URI` | No | OAuth redirect URI (defaults to `APP_URL + /api/integrations/google/callback`) |
@@ -121,6 +123,8 @@ Anonymous booking: `GET /api/booking/services`, `GET /api/booking/services/:id/p
 | `SMTP_PORT` | No | SMTP port. Default: `1025` (Mailpit). Production: `587` (STARTTLS) or `465` (SSL). |
 | `SMTP_USER` | No | SMTP username. Leave blank for Mailpit local dev. |
 | `SMTP_PASS` | No | SMTP password. Leave blank for Mailpit local dev. |
+
+**Web (`apps/web/.env.local`):** set `VITE_OPENBOOK_CSRF=true` only when the API has `OPENBOOK_CSRF_ENABLED=true`, so the SPA fetches `/api/auth/csrf-token` and sends `X-CSRF-Token` on mutating requests.
 
 ## Local services
 

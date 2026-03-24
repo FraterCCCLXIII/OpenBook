@@ -232,6 +232,126 @@ export class StaffCalendarController {
     return { ok: true };
   }
 
+  // ─── Appointment notes (ea_appointment_notes) ─────────────────────────────
+
+  @Get('appointments/:id/notes')
+  async listAppointmentNotes(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+  ) {
+    if (!canView(req.staffUser.permissions, 'appointments')) {
+      throw new ForbiddenException();
+    }
+    let bid: bigint;
+    try {
+      bid = BigInt(id);
+    } catch {
+      throw new NotFoundException();
+    }
+    const appt = await this.prisma.appointment.findFirst({
+      where: { id: bid, isUnavailability: 0 },
+    });
+    if (!appt) throw new NotFoundException();
+
+    const notes = await this.prisma.appointmentNote.findMany({
+      where: { idAppointments: bid },
+      orderBy: { createDatetime: 'desc' },
+    });
+    const authorIds = [
+      ...new Set(
+        notes
+          .map((n) => n.idUsersAuthor)
+          .filter((x): x is bigint => x != null),
+      ),
+    ];
+    const authors =
+      authorIds.length > 0
+        ? await this.prisma.user.findMany({
+            where: { id: { in: authorIds } },
+            select: { id: true, firstName: true, lastName: true, email: true },
+          })
+        : [];
+    const authorMap = new Map(authors.map((u) => [u.id.toString(), u]));
+
+    return {
+      items: notes.map((n) => {
+        const au = n.idUsersAuthor
+          ? authorMap.get(n.idUsersAuthor.toString())
+          : undefined;
+        const authorName =
+          [au?.firstName, au?.lastName].filter(Boolean).join(' ').trim() ||
+          au?.email ||
+          null;
+        return {
+          id: n.id.toString(),
+          note: n.note,
+          createDatetime: n.createDatetime?.toISOString() ?? null,
+          authorName,
+        };
+      }),
+    };
+  }
+
+  @Post('appointments/:id/notes')
+  async createAppointmentNote(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Body() body: { note?: string },
+  ) {
+    if (!can(req.staffUser.permissions, 'appointments', 'edit')) {
+      throw new ForbiddenException();
+    }
+    const text = body.note?.trim();
+    if (!text) {
+      throw new BadRequestException('note is required');
+    }
+    let bid: bigint;
+    try {
+      bid = BigInt(id);
+    } catch {
+      throw new NotFoundException();
+    }
+    const appt = await this.prisma.appointment.findFirst({
+      where: { id: bid, isUnavailability: 0 },
+    });
+    if (!appt) throw new NotFoundException();
+
+    const uid = BigInt(req.staffUser.userId);
+    const row = await this.prisma.appointmentNote.create({
+      data: {
+        idAppointments: bid,
+        idUsersAuthor: uid,
+        note: text,
+      },
+    });
+    return { id: row.id.toString(), ok: true };
+  }
+
+  @Delete('appointments/:id/notes/:noteId')
+  async deleteAppointmentNote(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Param('noteId') noteId: string,
+  ) {
+    if (!can(req.staffUser.permissions, 'appointments', 'edit')) {
+      throw new ForbiddenException();
+    }
+    let bid: bigint;
+    let nid: bigint;
+    try {
+      bid = BigInt(id);
+      nid = BigInt(noteId);
+    } catch {
+      throw new NotFoundException();
+    }
+    const existing = await this.prisma.appointmentNote.findFirst({
+      where: { id: nid, idAppointments: bid },
+    });
+    if (!existing) throw new NotFoundException();
+    await this.prisma.appointmentNote.delete({ where: { id: nid } });
+    return { ok: true };
+  }
+
   // ─── Blocked periods ───────────────────────────────────────────────────────
 
   @Get('blocked-periods')

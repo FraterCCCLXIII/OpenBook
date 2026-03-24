@@ -47,6 +47,9 @@ export class AuthService {
    * Attempt LDAP bind for the given email and password.
    * Returns true if bind succeeded, false if credentials are wrong or LDAP is
    * unreachable (caller falls back to bcrypt).
+   *
+   * If `ldap_user_search_filter` is set (e.g. `(mail=${email})`), performs a
+   * search under `ldap_base_dn` after service bind, then binds as the found DN.
    */
   async ldapBind(email: string, password: string): Promise<boolean> {
     const settings = await this.prisma.setting.findFirst({
@@ -54,33 +57,67 @@ export class AuthService {
     });
     if (settings?.value !== '1') return false;
 
-    const [host, portSetting, bindDN, bindPassword, baseDN, uidField] =
-      await Promise.all([
-        this.prisma.setting.findFirst({ where: { name: 'ldap_host' } }),
-        this.prisma.setting.findFirst({ where: { name: 'ldap_port' } }),
-        this.prisma.setting.findFirst({ where: { name: 'ldap_username' } }),
-        this.prisma.setting.findFirst({ where: { name: 'ldap_password' } }),
-        this.prisma.setting.findFirst({ where: { name: 'ldap_base_dn' } }),
-        this.prisma.setting.findFirst({ where: { name: 'ldap_uid_field' } }),
-      ]);
+    const [
+      host,
+      portSetting,
+      bindDN,
+      bindPassword,
+      baseDN,
+      uidField,
+      searchFilterSetting,
+      tlsSetting,
+    ] = await Promise.all([
+      this.prisma.setting.findFirst({ where: { name: 'ldap_host' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_port' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_username' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_password' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_base_dn' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_uid_field' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_user_search_filter' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_tls' } }),
+    ]);
 
     const ldapHost = host?.value ?? 'localhost';
     const ldapPort = Number(portSetting?.value ?? 389);
     const ldapBaseDN = baseDN?.value ?? '';
     const uidAttr = uidField?.value ?? 'uid';
-    const userDN = `${uidAttr}=${email},${ldapBaseDN}`;
+    const useTls = tlsSetting?.value === '1';
+    const url = useTls
+      ? `ldaps://${ldapHost}:${ldapPort}`
+      : `ldap://${ldapHost}:${ldapPort}`;
 
+    const searchTpl = searchFilterSetting?.value?.trim();
+    if (searchTpl) {
+      const filter = searchTpl.replace(
+        /\$\{email\}/g,
+        escapeLdapFilterValue(email),
+      );
+      const userDN = await this.ldapSearchFirstDN(
+        url,
+        bindDN?.value ?? undefined,
+        bindPassword?.value ?? undefined,
+        ldapBaseDN,
+        filter,
+      );
+      if (!userDN) return false;
+      return this.ldapBindSingle(url, userDN, password);
+    }
+
+    const userDN = `${uidAttr}=${escapeLdapRdnValue(email)},${ldapBaseDN}`;
     return new Promise<boolean>((resolve) => {
       const client = ldap.createClient({
-        url: `ldap://${ldapHost}:${ldapPort}`,
+        url,
         connectTimeout: 5000,
-        timeout: 5000,
+        timeout: 8000,
       });
 
-      // Optionally bind with service account first
       const doUserBind = () => {
         client.bind(userDN, password, (err) => {
-          client.destroy();
+          try {
+            client.destroy();
+          } catch {
+            /* ignore */
+          }
           resolve(!err);
         });
       };
@@ -88,7 +125,11 @@ export class AuthService {
       if (bindDN?.value && bindPassword?.value) {
         client.bind(bindDN.value, bindPassword.value, (err) => {
           if (err) {
-            client.destroy();
+            try {
+              client.destroy();
+            } catch {
+              /* ignore */
+            }
             resolve(false);
             return;
           }
@@ -99,9 +140,97 @@ export class AuthService {
       }
 
       client.on('error', () => {
-        client.destroy();
+        try {
+          client.destroy();
+        } catch {
+          /* ignore */
+        }
         resolve(false);
       });
+    });
+  }
+
+  private ldapSearchFirstDN(
+    url: string,
+    serviceBindDN: string | undefined,
+    servicePassword: string | undefined,
+    baseDN: string,
+    filter: string,
+  ): Promise<string | null> {
+    return new Promise((resolve) => {
+      const client = ldap.createClient({
+        url,
+        connectTimeout: 5000,
+        timeout: 8000,
+      });
+
+      const finish = (dn: string | null) => {
+        try {
+          client.destroy();
+        } catch {
+          /* ignore */
+        }
+        resolve(dn);
+      };
+
+      const runSearch = () => {
+        client.search(
+          baseDN,
+          { filter, scope: 'sub', attributes: ['dn'] },
+          (err, res) => {
+            if (err || !res) {
+              finish(null);
+              return;
+            }
+            let dn: string | null = null;
+            res.on('searchEntry', (entry) => {
+              if (!dn) {
+                const raw = entry.dn as unknown;
+                dn = typeof raw === 'string' ? raw : String(raw);
+              }
+            });
+            res.on('error', () => finish(null));
+            res.on('end', () => finish(dn));
+          },
+        );
+      };
+
+      if (serviceBindDN && servicePassword) {
+        client.bind(serviceBindDN, servicePassword, (err) => {
+          if (err) {
+            finish(null);
+            return;
+          }
+          runSearch();
+        });
+      } else {
+        runSearch();
+      }
+
+      client.on('error', () => finish(null));
+    });
+  }
+
+  private ldapBindSingle(
+    url: string,
+    userDN: string,
+    password: string,
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      const client = ldap.createClient({
+        url,
+        connectTimeout: 5000,
+        timeout: 8000,
+      });
+      client.bind(userDN, password, (err) => {
+        try {
+          client.destroy();
+        } catch {
+          /* ignore */
+        }
+        resolve(!err);
+      });
+      client.on('error', () => resolve(false));
     });
   }
 
@@ -225,6 +354,12 @@ export class AuthService {
         email: normalized,
         firstName: user.firstName,
         lastName: user.lastName,
+        phoneNumber: user.phoneNumber,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        zipCode: user.zipCode,
+        timezone: user.timezone,
       },
     };
   }
@@ -263,6 +398,12 @@ export class AuthService {
         email: auth.email,
         firstName: u?.firstName ?? null,
         lastName: u?.lastName ?? null,
+        phoneNumber: u?.phoneNumber ?? null,
+        address: u?.address ?? null,
+        city: u?.city ?? null,
+        state: u?.state ?? null,
+        zipCode: u?.zipCode ?? null,
+        timezone: u?.timezone ?? null,
       },
     };
   }
@@ -451,6 +592,12 @@ export class AuthService {
         email: auth.email,
         firstName: u?.firstName ?? null,
         lastName: u?.lastName ?? null,
+        phoneNumber: u?.phoneNumber ?? null,
+        address: u?.address ?? null,
+        city: u?.city ?? null,
+        state: u?.state ?? null,
+        zipCode: u?.zipCode ?? null,
+        timezone: u?.timezone ?? null,
       },
     };
   }
@@ -518,6 +665,12 @@ export class AuthService {
         email: auth.email,
         firstName: u?.firstName ?? null,
         lastName: u?.lastName ?? null,
+        phoneNumber: u?.phoneNumber ?? null,
+        address: u?.address ?? null,
+        city: u?.city ?? null,
+        state: u?.state ?? null,
+        zipCode: u?.zipCode ?? null,
+        timezone: u?.timezone ?? null,
       },
     };
   }
@@ -577,6 +730,18 @@ export class AuthService {
       }),
     ]);
   }
+}
+
+function escapeLdapFilterValue(s: string): string {
+  return s.replace(/[\\*()\0]/g, (ch) => {
+    if (ch === '\0') return '\\00';
+    return '\\' + ch;
+  });
+}
+
+/** Escape RDN attribute value (RFC 4514 subset). */
+function escapeLdapRdnValue(s: string): string {
+  return s.replace(/[+,=\\<>#;\"\n]/g, (ch) => '\\' + ch);
 }
 
 export type StaffMeResponse = {

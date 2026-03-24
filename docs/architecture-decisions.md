@@ -101,7 +101,23 @@ The app is primarily a logged-in SPA (staff backend, customer portal). Public pa
 
 **Rationale:** Duplicate CSRF middleware adds complexity with little benefit when APIs are JSON-only and not embedded in third-party origin forms.
 
-**Revisit when:** A documented requirement exists to accept legacy browser POSTs or embedded widgets that cannot send custom headers.
+**Revisit when:** A documented requirement exists to accept legacy browser POSTs or embedded widgets that cannot send custom headers. See **ADR-005** for the opt-in implementation.
+
+---
+
+## ADR-005: Optional CSRF for legacy POST compatibility
+
+**Status:** Accepted (opt-in via environment)
+
+**Context:** Some deployments need PHP-style CSRF semantics for third-party forms or compliance checklists, while the default SPA relies on same-site cookies and JSON APIs.
+
+**Decision:** When `OPENBOOK_CSRF_ENABLED=true` (or `1`), the API applies a double-submit check: cookie `openbook_csrf` must match header `X-CSRF-Token` on `POST`/`PUT`/`PATCH`/`DELETE`. Clients obtain the token from `GET /api/auth/csrf-token`. Exempt: Stripe webhooks (signature), Bearer `OPENBOOK_API_TOKEN` machine clients, and preflight/`GET`. The Vite app sets `VITE_OPENBOOK_CSRF=true` and calls `ensureCsrfToken()` (see `apps/web/src/lib/csrf.ts`, `AuthContext`, `apiJson`, `BookWizard`).
+
+**Rationale:** Keeps the default stack simple; enables stricter mode without forking the API.
+
+**Trade-offs:** Extra round-trip or bootstrap step when enabled; must not enable CSRF in production without updating all clients (including public booking).
+
+**Revisit when:** We standardize on a single auth model (e.g. only Bearer) and no longer need cookie-based CSRF.
 
 ---
 

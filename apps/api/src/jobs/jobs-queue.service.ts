@@ -34,6 +34,22 @@ export class JobsQueueService implements OnModuleDestroy {
     );
   }
 
+  /** Enqueue GeoNames postal import (worker logs + audit; CSV import TBD). */
+  async enqueueGeonamesImport(payload: {
+    source?: string;
+    countryCode?: string;
+  }): Promise<void> {
+    if (!this.queue) {
+      this.log.debug('REDIS_URL not set; skip geonames-import job');
+      return;
+    }
+    await this.queue.add(
+      'geonames-import',
+      { source: payload.source ?? 'manual', countryCode: payload.countryCode },
+      { removeOnComplete: 50, removeOnFail: 200 },
+    );
+  }
+
   async enqueueWebhookDispatch(payload: {
     event:
       | 'appointment.created'

@@ -167,6 +167,18 @@ const SECTION_FIELDS: Record<string, FieldDef[]> = {
     { key: 'ldap_dn', label: 'Bind DN' },
     { key: 'ldap_uid_field', label: 'UID field', placeholder: 'uid' },
     { key: 'ldap_tls', label: 'TLS', type: 'select', options: [{ value: '0', label: 'No' }, { value: '1', label: 'Yes' }] },
+    {
+      key: 'ldap_user_search_filter',
+      label: 'User search filter',
+      type: 'textarea',
+      placeholder: '(mail=${email}) or (uid=${email})',
+    },
+    {
+      key: 'ldap_field_mapping',
+      label: 'Field mapping (JSON)',
+      type: 'textarea',
+      placeholder: '{"email":"mail","firstName":"givenName"}',
+    },
   ],
   'service-areas': [
     { key: 'service_area_countries', label: 'Countries (comma-separated)', type: 'textarea', placeholder: 'US,CA,GB' },

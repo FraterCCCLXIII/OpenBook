@@ -50,6 +50,17 @@ export default defineConfig({
         storageState: 'e2e/.auth/customer.json',
       },
     },
+    {
+      name: 'customer-booking',
+      testMatch: /customer\.booking\.spec\.ts/,
+      dependencies: ['setup-customer'],
+      use: {
+        baseURL,
+        trace: 'on-first-retry',
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/customer.json',
+      },
+    },
   ],
   use: {
     baseURL,

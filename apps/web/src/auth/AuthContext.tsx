@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { AuthUser, StaffUser } from '../types/auth';
+import { csrfHeaders, ensureCsrfToken } from '../lib/csrf';
 
 type AuthState = {
   user: AuthUser | null;
@@ -83,16 +84,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (import.meta.env.VITE_OPENBOOK_CSRF === 'true') {
+      void ensureCsrfToken();
+    }
+  }, []);
+
   const logout = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    await ensureCsrfToken();
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...csrfHeaders() },
+    });
     setUser(null);
   }, []);
 
   const staffLogin = useCallback(async (username: string, password: string) => {
+    await ensureCsrfToken();
     const res = await fetch('/api/auth/staff/login', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
       body: JSON.stringify({ username, password }),
     });
     if (!res.ok) {
@@ -104,10 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const customerLogin = useCallback(async (email: string, password: string) => {
+    await ensureCsrfToken();
     const res = await fetch('/api/auth/customer/login', {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
       body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
@@ -120,10 +134,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const customerRegister = useCallback(
     async (email: string, password: string, firstName: string, lastName: string) => {
+      await ensureCsrfToken();
       const res = await fetch('/api/auth/customer/register', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
         body: JSON.stringify({
           email,
           password,

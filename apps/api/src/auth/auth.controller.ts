@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import {
   BadRequestException,
   Body,
@@ -24,6 +25,20 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly otp: CustomerOtpService,
   ) {}
+
+  /** Double-submit CSRF token for SPA when `OPENBOOK_CSRF_ENABLED` is set (see ADR-004 / ADR-005). */
+  @Get('csrf-token')
+  issueCsrfToken(@Res({ passthrough: true }) res: Response) {
+    const token = randomBytes(32).toString('hex');
+    res.cookie('openbook_csrf', token, {
+      httpOnly: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      secure: process.env.NODE_ENV === 'production',
+    });
+    return { csrfToken: token };
+  }
 
   @Post('staff/login')
   async staffLogin(

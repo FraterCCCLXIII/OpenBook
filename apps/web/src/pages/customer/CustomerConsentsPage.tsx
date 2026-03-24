@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle, Shield } from 'lucide-react';
+import { CheckCircle, ChevronDown, Shield } from 'lucide-react';
+import { useState } from 'react';
 import { Button, Card } from '../../components/ui';
 
 type ConsentRow = {
@@ -52,6 +53,16 @@ function formatDate(iso: string) {
 
 export function CustomerConsentsPage() {
   const qc = useQueryClient();
+  const [legalOpen, setLegalOpen] = useState<string | null>(null);
+
+  const legal = useQuery({
+    queryKey: ['settings', 'legal', 'public'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings/legal');
+      if (!res.ok) throw new Error('Failed to load legal text');
+      return res.json() as Promise<Record<string, string>>;
+    },
+  });
 
   const q = useQuery({
     queryKey: ['customer', 'consents'],
@@ -85,6 +96,67 @@ export function CustomerConsentsPage() {
           associated with your account.
         </p>
       </div>
+
+      {legal.isSuccess && (
+        <section aria-label="Legal documents from your organization" className="space-y-2">
+          {legal.data.display_terms_and_conditions === '1' &&
+            legal.data.terms_and_conditions_content?.trim() && (
+              <Card padding="none" className="overflow-hidden">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-5 py-3 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() =>
+                    setLegalOpen((v) => (v === 'terms' ? null : 'terms'))
+                  }
+                  aria-expanded={legalOpen === 'terms'}
+                >
+                  Terms &amp; conditions (full text)
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 transition-transform ${legalOpen === 'terms' ? 'rotate-180' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+                {legalOpen === 'terms' && (
+                  <div className="border-t border-slate-100 px-5 py-4 text-sm leading-relaxed text-slate-700 [&_a]:text-brand [&_a]:underline">
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: legal.data.terms_and_conditions_content ?? '',
+                      }}
+                    />
+                  </div>
+                )}
+              </Card>
+            )}
+          {legal.data.display_privacy_policy === '1' &&
+            legal.data.privacy_policy_content?.trim() && (
+              <Card padding="none" className="overflow-hidden">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-5 py-3 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                  onClick={() =>
+                    setLegalOpen((v) => (v === 'privacy' ? null : 'privacy'))
+                  }
+                  aria-expanded={legalOpen === 'privacy'}
+                >
+                  Privacy policy (full text)
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 transition-transform ${legalOpen === 'privacy' ? 'rotate-180' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+                {legalOpen === 'privacy' && (
+                  <div className="border-t border-slate-100 px-5 py-4 text-sm leading-relaxed text-slate-700 [&_a]:text-brand [&_a]:underline">
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html: legal.data.privacy_policy_content ?? '',
+                      }}
+                    />
+                  </div>
+                )}
+              </Card>
+            )}
+        </section>
+      )}
 
       {/* Consent cards */}
       <section aria-labelledby="consents-heading">

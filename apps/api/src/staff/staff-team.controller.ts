@@ -19,7 +19,7 @@ import {
   StaffAuthGuard,
   type RequestWithStaff,
 } from '../auth/staff-auth.guard';
-import { canView } from '../auth/permissions.ea';
+import { can, canView } from '../auth/permissions.ea';
 
 const ROLE_SLUGS = ['provider', 'secretary', 'admin'] as const;
 
@@ -51,7 +51,7 @@ export class StaffTeamController {
       password?: string;
     },
   ) {
-    if (!canView(req.staffUser.permissions, 'users')) {
+    if (!can(req.staffUser.permissions, 'users', 'add')) {
       throw new ForbiddenException();
     }
     if (!ROLE_SLUGS.includes(roleSlug as (typeof ROLE_SLUGS)[number])) {
@@ -109,7 +109,7 @@ export class StaffTeamController {
     @Body()
     body: { firstName?: string; lastName?: string; email?: string },
   ) {
-    if (!canView(req.staffUser.permissions, 'users')) {
+    if (!can(req.staffUser.permissions, 'users', 'edit')) {
       throw new ForbiddenException();
     }
     if (!ROLE_SLUGS.includes(roleSlug as (typeof ROLE_SLUGS)[number])) {
@@ -169,7 +169,7 @@ export class StaffTeamController {
     @Param('roleSlug') roleSlug: string,
     @Param('id') id: string,
   ) {
-    if (!canView(req.staffUser.permissions, 'users')) {
+    if (!can(req.staffUser.permissions, 'users', 'delete')) {
       throw new ForbiddenException();
     }
     if (!ROLE_SLUGS.includes(roleSlug as (typeof ROLE_SLUGS)[number])) {
@@ -204,6 +204,59 @@ export class StaffTeamController {
     await this.prisma.user.delete({ where: { id: userId } });
 
     return { ok: true };
+  }
+
+  /** Single team member — must be registered before `GET :roleSlug` (list). */
+  @Get(':roleSlug/:id')
+  async one(
+    @Req() req: RequestWithStaff,
+    @Param('roleSlug') roleSlug: string,
+    @Param('id') id: string,
+  ) {
+    if (!canView(req.staffUser.permissions, 'users')) {
+      throw new ForbiddenException();
+    }
+    if (!ROLE_SLUGS.includes(roleSlug as (typeof ROLE_SLUGS)[number])) {
+      throw new BadRequestException('Invalid role');
+    }
+
+    const role = await this.prisma.role.findFirst({
+      where: { slug: roleSlug },
+    });
+    if (!role) {
+      throw new NotFoundException();
+    }
+
+    let userId: bigint;
+    try {
+      userId = BigInt(id);
+    } catch {
+      throw new BadRequestException('Invalid id');
+    }
+
+    const u = await this.prisma.user.findFirst({
+      where: { id: userId, idRoles: role.id },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+      },
+    });
+    if (!u) {
+      throw new NotFoundException();
+    }
+
+    return {
+      id: u.id.toString(),
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      displayName:
+        [u.firstName, u.lastName].filter(Boolean).join(' ').trim() ||
+        u.email ||
+        `User ${u.id}`,
+    };
   }
 
   @Get(':roleSlug')

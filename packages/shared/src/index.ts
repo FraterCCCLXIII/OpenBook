@@ -80,15 +80,29 @@ export const stripeSettingsSchema = z.object({
 });
 export type StripeSettings = z.infer<typeof stripeSettingsSchema>;
 
+/** Keys align with `ea_settings` and staff LDAP login (`ldap_is_active`, `ldap_username`, …). */
 export const ldapSettingsSchema = z.object({
-  ldap_enabled: z.enum(['0', '1']).optional(),
+  ldap_is_active: z.enum(['0', '1']).optional(),
   ldap_host: z.string().optional(),
   ldap_port: z.coerce.number().int().min(1).max(65535).optional(),
-  ldap_dn: z.string().optional(),
+  /** Service bind DN (stored as `ldap_username` in DB; used by staff LDAP login). */
+  ldap_username: z.string().optional(),
   ldap_password: z.string().optional(),
   ldap_base_dn: z.string().optional(),
+  /** Optional extra DN field kept for parity with legacy UIs. */
+  ldap_dn: z.string().optional(),
   ldap_uid_field: z.string().optional(),
   ldap_tls: z.enum(['0', '1']).optional(),
+  /**
+   * LDAP filter template for user lookup before bind, e.g. `(mail=${email})` or `(uid=${email})`.
+   * When set, the server binds with the service account, searches `ldap_base_dn`, then binds as the found DN.
+   */
+  ldap_user_search_filter: z.string().optional(),
+  /**
+   * JSON map of OpenBook user fields → LDAP attribute names for future import/sync UIs, e.g.
+   * `{"email":"mail","firstName":"givenName","lastName":"sn"}`.
+   */
+  ldap_field_mapping: z.string().optional(),
 });
 export type LdapSettings = z.infer<typeof ldapSettingsSchema>;
 
@@ -116,6 +130,7 @@ export type LegalSettings = z.infer<typeof legalSettingsSchema>;
 
 export const analyticsSettingsSchema = z.object({
   google_analytics_code: z.string().optional(),
+  matomo_analytics_active: z.enum(['0', '1']).optional(),
   matomo_analytics_url: z.string().url().optional().or(z.literal('')),
   matomo_analytics_site_id: z.string().optional(),
 });
@@ -126,6 +141,19 @@ export const customerLoginSettingsSchema = z.object({
   customer_login_mode: z.enum(['password', 'otp', 'both']).optional(),
 });
 export type CustomerLoginSettings = z.infer<typeof customerLoginSettingsSchema>;
+
+export const customerProfilesSettingsSchema = z.object({
+  require_last_name: z.enum(['0', '1']).optional(),
+  require_phone_number: z.enum(['0', '1']).optional(),
+  require_address: z.enum(['0', '1']).optional(),
+});
+export type CustomerProfilesSettings = z.infer<typeof customerProfilesSettingsSchema>;
+
+export const serviceAreasSettingsSchema = z.object({
+  service_area_countries: z.string().optional(),
+  service_area_notes: z.string().optional(),
+});
+export type ServiceAreasSettings = z.infer<typeof serviceAreasSettingsSchema>;
 
 export const SETTINGS_SECTION_SCHEMAS = {
   general: generalSettingsSchema,
@@ -138,6 +166,8 @@ export const SETTINGS_SECTION_SCHEMAS = {
   legal: legalSettingsSchema,
   analytics: analyticsSettingsSchema,
   'customer-login': customerLoginSettingsSchema,
+  'customer-profiles': customerProfilesSettingsSchema,
+  'service-areas': serviceAreasSettingsSchema,
 } as const;
 
 export type SettingsSectionKey = keyof typeof SETTINGS_SECTION_SCHEMAS;
@@ -149,6 +179,16 @@ export const SECRET_SETTING_KEYS = new Set([
   'smtp_password',
   'ldap_password',
   'api_token',
+]);
+
+/** Keys safe for anonymous / customer legal UX (no secrets). */
+export const LEGAL_PUBLIC_SETTING_NAMES = new Set([
+  'display_terms_and_conditions',
+  'terms_and_conditions_content',
+  'display_cookie_notice',
+  'cookie_notice_content',
+  'display_privacy_policy',
+  'privacy_policy_content',
 ]);
 
 // ─── Typed API response shapes ────────────────────────────────────────────────

@@ -53,6 +53,14 @@ const CustomerFormDetailPage = lazy(() =>
     default: m.CustomerFormDetailPage,
   })),
 );
+const StaffToolsPage = lazy(() =>
+  import('./pages/staff/StaffToolsPage').then((m) => ({ default: m.StaffToolsPage })),
+);
+const StaffConsentsReportPage = lazy(() =>
+  import('./pages/staff/StaffConsentsReportPage').then((m) => ({
+    default: m.StaffConsentsReportPage,
+  })),
+);
 
 const Loading = () => (
   <div className="flex items-center justify-center py-16 text-sm text-zinc-500">
@@ -112,6 +120,8 @@ export default function App() {
             <Route path="/staff/admins" element={<StaffAdminsPage />} />
             <Route path="/staff/forms" element={<StaffFormsPage />} />
             <Route path="/staff/webhooks" element={<StaffWebhooksPage />} />
+            <Route path="/staff/tools" element={<StaffToolsPage />} />
+            <Route path="/staff/consents-report" element={<StaffConsentsReportPage />} />
             <Route path="/staff/settings" element={<StaffSettingsLayout />}>
               <Route index element={<Navigate to="general" replace />} />
               <Route path=":section" element={<StaffSettingsSectionPage />} />

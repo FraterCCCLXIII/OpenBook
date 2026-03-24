@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { apiJson } from '../../lib/api';
 
 type ProviderDetail = {
@@ -21,6 +21,7 @@ type ServiceOption = { id: string; name: string | null };
 
 export function StaffProviderDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const qc = useQueryClient();
 
   const q = useQuery({
@@ -55,6 +56,15 @@ export function StaffProviderDetailPage() {
       setWorkingPlan(null);
       setTimezone(null);
       setSelectedServices(null);
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () =>
+      apiJson(`/api/staff/team/provider/${encodeURIComponent(id ?? '')}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['staff', 'team', 'provider'] });
+      navigate('/staff/providers');
     },
   });
 
@@ -140,13 +150,30 @@ export function StaffProviderDetailPage() {
             <p className="text-sm text-emerald-500">Saved successfully.</p>
           )}
 
-          <button
-            type="submit"
-            disabled={m.isPending}
-            className="rounded-lg bg-emerald-600 px-6 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-          >
-            {m.isPending ? 'Saving…' : 'Save changes'}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="submit"
+              disabled={m.isPending}
+              className="rounded-lg bg-emerald-600 px-6 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              {m.isPending ? 'Saving…' : 'Save changes'}
+            </button>
+            <button
+              type="button"
+              disabled={deleteMut.isPending}
+              onClick={() => {
+                if (window.confirm('Delete this provider? This cannot be undone.')) {
+                  deleteMut.mutate();
+                }
+              }}
+              className="rounded-lg border border-red-900 px-6 py-2 text-sm text-red-400 hover:border-red-700 disabled:opacity-50"
+            >
+              {deleteMut.isPending ? 'Deleting…' : 'Delete provider'}
+            </button>
+          </div>
+          {deleteMut.isError && (
+            <p className="text-sm text-red-400">{(deleteMut.error as Error).message}</p>
+          )}
         </form>
       )}
     </div>

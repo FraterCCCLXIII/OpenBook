@@ -73,6 +73,25 @@ export class CustomerAppointmentsController {
     const duration = service.duration ?? 30;
     const endDatetime = new Date(startDatetime.getTime() + duration * 60_000);
 
+    const capacity = service.attendantsNumber ?? 1;
+    const overlap = await this.prisma.appointment.count({
+      where: {
+        idUsersProvider: providerId,
+        isUnavailability: 0,
+        startDatetime: { not: null },
+        endDatetime: { not: null },
+        AND: [
+          { startDatetime: { lt: endDatetime } },
+          { endDatetime: { gt: startDatetime } },
+        ],
+      },
+    });
+    if (overlap >= capacity) {
+      throw new BadRequestException(
+        'That slot is full — pick another time or provider',
+      );
+    }
+
     const appt = await this.prisma.appointment.create({
       data: {
         startDatetime,
@@ -143,11 +162,17 @@ export class CustomerAppointmentsController {
         provider: {
           select: { firstName: true, lastName: true, email: true },
         },
+        payments: { orderBy: { id: 'desc' }, take: 1 },
       },
     });
     if (!a) {
       throw new NotFoundException();
     }
+    const latest = a.payments[0];
+    const price = a.service?.price;
+    const hasPrice = price != null && Number(price) > 0;
+    const paid = latest?.status === 'succeeded';
+    const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
     return {
       id: a.id.toString(),
       startDatetime: a.startDatetime?.toISOString() ?? null,
@@ -161,6 +186,16 @@ export class CustomerAppointmentsController {
           .trim() ||
         a.provider?.email ||
         null,
+      servicePrice: price?.toString() ?? null,
+      serviceCurrency: a.service?.currency ?? null,
+      latestPayment: latest
+        ? {
+            status: latest.status,
+            amount: latest.amount?.toString() ?? null,
+            currency: latest.currency,
+          }
+        : null,
+      canPayWithStripe: stripeConfigured && hasPrice && !paid,
     };
   }
 
@@ -229,8 +264,15 @@ export class CustomerAppointmentsController {
       include: {
         service: true,
         provider: { select: { firstName: true, lastName: true, email: true } },
+        payments: { orderBy: { id: 'desc' }, take: 1 },
       },
     });
+
+    const latest = updated.payments[0];
+    const price = updated.service?.price;
+    const hasPrice = price != null && Number(price) > 0;
+    const paid = latest?.status === 'succeeded';
+    const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
 
     return {
       id: updated.id.toString(),
@@ -245,6 +287,16 @@ export class CustomerAppointmentsController {
           .trim() ||
         updated.provider?.email ||
         null,
+      servicePrice: price?.toString() ?? null,
+      serviceCurrency: updated.service?.currency ?? null,
+      latestPayment: latest
+        ? {
+            status: latest.status,
+            amount: latest.amount?.toString() ?? null,
+            currency: latest.currency,
+          }
+        : null,
+      canPayWithStripe: stripeConfigured && hasPrice && !paid,
     };
   }
 

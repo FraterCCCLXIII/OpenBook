@@ -16,21 +16,21 @@ Architecture constraints (stack choices) live in **architecture-decisions.md**; 
 
 ## Foundation (current)
 
-In place: Prisma + MySQL (including `openbook_*` tables), JWT auth (staff + customer), `AvailabilityService` + public booking (`POST /api/booking/appointments`), customer register/profile/appointments, staff calendar (FullCalendar), CRM detail, services CRUD, provider booking detail, staff account working plan, Stripe webhook idempotency + BullMQ job enqueue (Redis optional), REST v1 `services` / `appointments`, seed data, CI.
+In place: Prisma + MySQL (including `openbook_*` tables), JWT auth (staff + customer), `AvailabilityService` + public booking (`POST /api/booking/appointments`), customer register/profile/appointments, staff calendar (FullCalendar with provider/customer/service pickers, blocked and unavailability CRUD, drag/move/resize for appointments and unavailabilities), CRM detail (profile + address fields, customer notes, alerts, custom fields), services CRUD, provider/secretary/admin team CRUD in the staff UI (`users` permission), provider booking detail, staff account working plan + Google Calendar link, per-section settings validated with `@openbook/shared` Zod (including `customer-profiles` and `service-areas`), LDAP setting keys aligned with `AuthService.ldapBind`, Stripe webhook idempotency + BullMQ job enqueue (Redis optional), REST v1 `services` / `appointments`, seed data, CI.
 
-**Remaining polish:** Stripe Checkout/refunds UI parity, optional CSRF for legacy POST compatibility (see [architecture-decisions.md](./architecture-decisions.md)). Playwright: staff + customer `storageState` setups, anonymous booking happy path, authenticated customer bookings (`apps/web/e2e/`).
+**Remaining polish:** Deeper Stripe/billing parity vs PHP fork (receipts, partial refunds) as needed; full GeoNames CSV import pipeline; LDAP user import modal.
+
+**Recently closed (parity / UX):** Optional **CSRF** (`OPENBOOK_CSRF_ENABLED` + `VITE_OPENBOOK_CSRF`, `GET /api/auth/csrf-token`, ADR-005). **GeoNames** staff tools + postal lookup API; **UserFile** uploads on customer detail; **consents** staff report + customer page legal panels from `GET /api/settings/legal`; **LDAP** search filter + field-mapping settings + richer bind; **billing** summary counts (pending/refunded); **jobs** `geonames-import` stub; **customer bookings** multi-attendant overlap check; **Stripe** customer refund route removed (staff refunds only).
 
 ---
 
-## Phase A — Public app (highest ROI)
+## Phase A — Public app (done / maintenance)
 
 **Goal:** Home and `/book` feel real: company info, selectable service and provider, DB-backed slots.
 
-- Surface `GET /api/settings/public` on [`HomePage`](../apps/web/src/pages/HomePage.tsx) / public layout.
-- Add **anonymous** booking metadata APIs (e.g. list services and providers for a service) backed by Prisma + `ea_services_providers`.
-- Update [`BookWizard`](../apps/web/src/components/BookWizard.tsx) to load those lists instead of hardcoded IDs; keep `POST /api/booking/available-hours` / `unavailable-dates`.
+**Status:** [`HomePage`](../apps/web/src/pages/HomePage.tsx) uses `GET /api/settings/public`. [`BookWizard`](../apps/web/src/components/BookWizard.tsx) loads services and providers from `GET /api/booking/services` and `GET /api/booking/services/:serviceId/providers` and uses `POST /api/booking/available-hours` / `unavailable-dates`. Treat further work here as UX polish (copy, empty states, performance), not blockers.
 
-**Exit:** Anonymous user completes service → provider → date → time without manual IDs.
+**Exit (met):** Anonymous user can complete service → provider → date → time without hardcoded IDs.
 
 ---
 
@@ -49,10 +49,9 @@ In place: Prisma + MySQL (including `openbook_*` tables), JWT auth (staff + cust
 
 **Goal:** Replace staff placeholders with real data and editing.
 
-- Calendar module + UI (FullCalendar or equivalent); align with backend events API.
-- Wire staff list pages to detail + create/update where RBAC allows.
-- Users CRUD (providers, secretaries, admins) with `users` permission.
-- Provider bookings route for provider role.
+**Status:** Calendar and CRM list/detail flows are implemented; staff calendar supports `ea_appointment_notes`. Optional follow-ups: GeoNames staff UI, `UserFile` attachments, deeper PHP calendar edge cases (overlap warnings, large customer lists → typeahead).
+
+- Provider bookings route for provider role (see [`route-map.md`](./route-map.md)).
 
 ---
 
@@ -60,7 +59,7 @@ In place: Prisma + MySQL (including `openbook_*` tables), JWT auth (staff + cust
 
 **Goal:** Sub-routes under `/staff/settings/*` matching PHP (general, business, booking, API, Stripe, LDAP, …).
 
-- Extend settings APIs: validation per section; never expose secrets on public endpoints.
+**Status:** Section `GET`/`PATCH` with Zod in `@openbook/shared`; secrets excluded from `GET /api/settings/public` via `SECRET_SETTING_KEYS`. Remaining: any missing legacy keys, richer LDAP/field-mapping UI vs PHP.
 
 ---
 
@@ -97,9 +96,9 @@ In place: Prisma + MySQL (including `openbook_*` tables), JWT auth (staff + cust
 
 ## Suggested order
 
-1. Phase A (public booking UX)  
+1. Phase B refinements and Phase E (billing) as product needs  
 2. Partial Phase G (auth E2E once seed users are stable)  
-3. Phase B → C → D → E  
-4. Phase F and full Phase G in parallel with hardening  
+3. Phase F and full Phase G in parallel with hardening  
+4. Phase H ongoing  
 
 Stack and migration decisions are **not** revisited here — see [architecture-decisions.md](./architecture-decisions.md).

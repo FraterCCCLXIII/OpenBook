@@ -9,3 +9,5 @@ coverage
 .idea
 .vscode
 apps/web/e2e/.auth/
+apps/api/uploads/
+uploads/
