@@ -77,6 +77,9 @@ export class StaffCalendarController {
         startDatetime: a.startDatetime?.toISOString() ?? null,
         endDatetime: a.endDatetime?.toISOString() ?? null,
         notes: a.notes,
+        color: a.color ?? null,
+        status: a.status ?? null,
+        location: a.location ?? null,
         serviceName: a.service?.name ?? null,
         customerName:
           [a.customer?.firstName, a.customer?.lastName]
@@ -85,6 +88,7 @@ export class StaffCalendarController {
             .trim() ||
           a.customer?.email ||
           null,
+        customerEmail: a.customer?.email ?? null,
         providerName:
           [a.provider?.firstName, a.provider?.lastName]
             .filter(Boolean)
@@ -131,6 +135,9 @@ export class StaffCalendarController {
       customerId?: string;
       serviceId?: string;
       notes?: string;
+      color?: string;
+      status?: string;
+      location?: string;
     },
   ) {
     if (!can(req.staffUser.permissions, 'appointments', 'add')) {
@@ -145,6 +152,9 @@ export class StaffCalendarController {
         startDatetime: new Date(body.start),
         endDatetime: new Date(body.end),
         notes: body.notes ?? null,
+        color: body.color ?? null,
+        status: body.status ?? null,
+        location: body.location ?? null,
         isUnavailability: 0,
         idUsersProvider: body.providerId ? BigInt(body.providerId) : null,
         idUsersCustomer: body.customerId ? BigInt(body.customerId) : null,
@@ -170,6 +180,9 @@ export class StaffCalendarController {
       providerId?: string;
       customerId?: string;
       serviceId?: string;
+      color?: string;
+      status?: string;
+      location?: string;
     },
   ) {
     if (!can(req.staffUser.permissions, 'appointments', 'edit')) {
@@ -188,20 +201,15 @@ export class StaffCalendarController {
     await this.prisma.appointment.update({
       where: { id: bid },
       data: {
-        ...(body.start !== undefined
-          ? { startDatetime: new Date(body.start) }
-          : {}),
+        ...(body.start !== undefined ? { startDatetime: new Date(body.start) } : {}),
         ...(body.end !== undefined ? { endDatetime: new Date(body.end) } : {}),
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
-        ...(body.providerId !== undefined
-          ? { idUsersProvider: BigInt(body.providerId) }
-          : {}),
-        ...(body.customerId !== undefined
-          ? { idUsersCustomer: BigInt(body.customerId) }
-          : {}),
-        ...(body.serviceId !== undefined
-          ? { idServices: BigInt(body.serviceId) }
-          : {}),
+        ...(body.color !== undefined ? { color: body.color || null } : {}),
+        ...(body.status !== undefined ? { status: body.status || null } : {}),
+        ...(body.location !== undefined ? { location: body.location || null } : {}),
+        ...(body.providerId !== undefined ? { idUsersProvider: BigInt(body.providerId) } : {}),
+        ...(body.customerId !== undefined ? { idUsersCustomer: BigInt(body.customerId) } : {}),
+        ...(body.serviceId !== undefined ? { idServices: BigInt(body.serviceId) } : {}),
       },
     });
     void this.jobs.enqueueWebhookDispatch({

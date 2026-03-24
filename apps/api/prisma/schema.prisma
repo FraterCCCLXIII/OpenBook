@@ -147,6 +147,9 @@ model Appointment {
   notes              String?   @db.Text
   hash               String?   @db.Text
   isUnavailability   Int       @default(0) @map("is_unavailability") @db.TinyInt
+  color              String?   @db.VarChar(32)
+  status             String?   @db.VarChar(32)
+  location           String?   @db.Text
   idUsersProvider    BigInt?   @map("id_users_provider")
   idUsersCustomer    BigInt?   @map("id_users_customer")
   idServices         BigInt?   @map("id_services")
