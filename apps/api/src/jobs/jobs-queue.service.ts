@@ -34,10 +34,12 @@ export class JobsQueueService implements OnModuleDestroy {
     );
   }
 
-  /** Enqueue GeoNames postal import (worker logs + audit; CSV import TBD). */
+  /** Enqueue GeoNames postal import (tab-separated file on disk under UPLOAD_DIR). */
   async enqueueGeonamesImport(payload: {
     source?: string;
     countryCode?: string;
+    filePath: string;
+    truncate?: boolean;
   }): Promise<void> {
     if (!this.queue) {
       this.log.debug('REDIS_URL not set; skip geonames-import job');
@@ -45,7 +47,12 @@ export class JobsQueueService implements OnModuleDestroy {
     }
     await this.queue.add(
       'geonames-import',
-      { source: payload.source ?? 'manual', countryCode: payload.countryCode },
+      {
+        source: payload.source ?? 'manual',
+        countryCode: payload.countryCode,
+        filePath: payload.filePath,
+        truncate: payload.truncate,
+      },
       { removeOnComplete: 50, removeOnFail: 200 },
     );
   }

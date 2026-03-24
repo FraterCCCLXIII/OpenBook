@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AvailabilityService } from '../availability/availability.service';
 import { JobsQueueService } from '../jobs/jobs-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import { BookingCatalogService } from './booking-catalog.service';
 import { BookingRegistrationService } from './booking-registration.service';
 
@@ -32,6 +33,16 @@ describe('BookingRegistrationService', () => {
     const jobs = {
       enqueueBookingConfirmation: jest.fn(),
     };
+    const settings = {
+      getSettingsByNames: jest.fn().mockResolvedValue({
+        require_captcha: '0',
+        require_phone_number: '0',
+        require_notes: '0',
+        require_first_name: '1',
+        require_last_name: '1',
+        require_address: '0',
+      }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -40,6 +51,7 @@ describe('BookingRegistrationService', () => {
         { provide: AvailabilityService, useValue: availability },
         { provide: BookingCatalogService, useValue: catalog },
         { provide: JobsQueueService, useValue: jobs },
+        { provide: SettingsService, useValue: settings },
       ],
     }).compile();
 
@@ -91,6 +103,16 @@ describe('BookingRegistrationService', () => {
     const jobs = {
       enqueueBookingConfirmation: jest.fn(),
     };
+    const settings = {
+      getSettingsByNames: jest.fn().mockResolvedValue({
+        require_captcha: '0',
+        require_phone_number: '0',
+        require_notes: '0',
+        require_first_name: '1',
+        require_last_name: '1',
+        require_address: '0',
+      }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -99,6 +121,7 @@ describe('BookingRegistrationService', () => {
         { provide: AvailabilityService, useValue: availability },
         { provide: BookingCatalogService, useValue: catalog },
         { provide: JobsQueueService, useValue: jobs },
+        { provide: SettingsService, useValue: settings },
       ],
     }).compile();
 

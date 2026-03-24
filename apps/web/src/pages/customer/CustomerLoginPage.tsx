@@ -9,7 +9,6 @@ import { OtpInput } from '../../components/ui/OtpInput';
 
 type LoginMode = 'otp' | 'password' | 'none';
 type OtpStep = 'email' | 'code';
-type PasswordStep = 'form';
 
 async function fetchPublicSettings(): Promise<Record<string, string>> {
   const res = await fetch('/api/settings/public');

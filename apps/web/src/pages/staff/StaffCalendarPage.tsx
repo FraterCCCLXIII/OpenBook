@@ -9,8 +9,8 @@ import type {
   DateSelectArg,
   EventClickArg,
   EventDropArg,
-  EventResizeDoneArg,
 } from '@fullcalendar/core';
+import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { apiJson } from '../../lib/api';

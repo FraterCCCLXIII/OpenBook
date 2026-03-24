@@ -19,17 +19,41 @@ services:
 
   redis:
     image: redis:7-alpine
+    # Host 6380 avoids clashing with another Redis on 6379 (e.g. other projects).
     ports:
-      - '6379:6379'
+      - '6380:6379'
     volumes:
       - openbook_redis:/data
 
   mailpit:
     image: axllent/mailpit:latest
+    # Host 1027/8027 avoid clashing with other Mailpit/SMTP listeners on 1025/1026/8025/8026.
     ports:
-      - '1025:1025'   # SMTP
-      - '8025:8025'   # Web UI  →  http://localhost:8025
+      - '1027:1025'   # SMTP → set SMTP_PORT=1027 in apps/api/.env
+      - '8027:8025'   # Web UI → http://localhost:8027
     restart: unless-stopped
+
+  # One-shot: `docker compose run --rm migrate` or `./scripts/docker-migrate.sh`
+  # Uses npx so no install step (pin version to match apps/api).
+  migrate:
+    # bookworm (not slim): OpenSSL libs for Prisma schema engine
+    image: node:20-bookworm
+    working_dir: /app
+    volumes:
+      - ./apps/api/prisma:/app/prisma:ro
+    environment:
+      DATABASE_URL: mysql://openbook:openbook@mysql:3306/openbook
+      CI: "true"
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        npx --yes prisma@5.22.0 migrate deploy --schema=prisma/schema.prisma
 
 volumes:
   openbook_mysql:

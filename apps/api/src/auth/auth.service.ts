@@ -730,6 +730,264 @@ export class AuthService {
       }),
     ]);
   }
+
+  /**
+   * Search LDAP for directory import (staff UI). Requires `ldap_is_active=1` and service bind credentials.
+   */
+  async ldapDirectorySearch(
+    query: string,
+  ): Promise<
+    Array<{
+      dn: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+    }>
+  > {
+    this.ensureDb();
+    const q = query.trim();
+    if (q.length < 2) {
+      throw new BadRequestException('Query must be at least 2 characters');
+    }
+
+    const active = await this.prisma.setting.findFirst({
+      where: { name: 'ldap_is_active' },
+    });
+    if (active?.value !== '1') {
+      throw new ServiceUnavailableException('LDAP is not active');
+    }
+
+    const [
+      host,
+      portSetting,
+      bindDN,
+      bindPassword,
+      baseDN,
+      tlsSetting,
+      filterTplSetting,
+      mappingJson,
+    ] = await Promise.all([
+      this.prisma.setting.findFirst({ where: { name: 'ldap_host' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_port' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_username' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_password' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_base_dn' } }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_tls' } }),
+      this.prisma.setting.findFirst({
+        where: { name: 'ldap_directory_search_filter' },
+      }),
+      this.prisma.setting.findFirst({ where: { name: 'ldap_field_mapping' } }),
+    ]);
+
+    const ldapHost = host?.value ?? 'localhost';
+    const ldapPort = Number(portSetting?.value ?? 389);
+    const ldapBaseDN = baseDN?.value ?? '';
+    const useTls = tlsSetting?.value === '1';
+    const url = useTls
+      ? `ldaps://${ldapHost}:${ldapPort}`
+      : `ldap://${ldapHost}:${ldapPort}`;
+
+    const filterTpl =
+      filterTplSetting?.value?.trim() ||
+      '(&(objectClass=inetOrgPerson)(mail=*${query}*))';
+    const filter = filterTpl.replace(
+      /\$\{query\}/g,
+      escapeLdapFilterValue(q),
+    );
+
+    let mapping: Record<string, string> = {
+      email: 'mail',
+      firstName: 'givenName',
+      lastName: 'sn',
+    };
+    try {
+      if (mappingJson?.value?.trim()) {
+        const parsed = JSON.parse(mappingJson.value) as Record<string, string>;
+        if (parsed && typeof parsed === 'object') {
+          mapping = { ...mapping, ...parsed };
+        }
+      }
+    } catch {
+      /* keep defaults */
+    }
+
+    const emailAttr = mapping.email ?? 'mail';
+    const firstAttr = mapping.firstName ?? 'givenName';
+    const lastAttr = mapping.lastName ?? 'sn';
+    const attrs = Array.from(
+      new Set([emailAttr, firstAttr, lastAttr, 'mail', 'userPrincipalName']),
+    );
+
+    const rows = await this.ldapSearchCollect(
+      url,
+      bindDN?.value ?? undefined,
+      bindPassword?.value ?? undefined,
+      ldapBaseDN,
+      filter,
+      attrs,
+      25,
+    );
+
+    const out: Array<{
+      dn: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+    }> = [];
+
+    const read = (attrs: Record<string, string[]>, name: string) => {
+      const v = attrs[name]?.[0];
+      return v?.trim() ? v.trim() : null;
+    };
+
+    for (const row of rows) {
+      const emailRaw =
+        read(row.attrs, emailAttr) ??
+        read(row.attrs, 'mail') ??
+        read(row.attrs, 'userPrincipalName');
+      const email = emailRaw?.trim().toLowerCase() ?? '';
+      if (!email) continue;
+      out.push({
+        dn: row.dn,
+        email,
+        firstName: read(row.attrs, firstAttr),
+        lastName: read(row.attrs, lastAttr),
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Create a customer account without a password (portal login uses OTP / set-password flow).
+   */
+  async importCustomerFromDirectory(
+    email: string,
+    firstName: string | null,
+    lastName: string | null,
+  ): Promise<'created' | 'duplicate'> {
+    this.ensureDb();
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) {
+      throw new BadRequestException('Email is required');
+    }
+    const existing = await this.prisma.customerAuth.findFirst({
+      where: { email: normalized },
+    });
+    if (existing) {
+      return 'duplicate';
+    }
+    const customerRole = await this.prisma.role.findFirst({
+      where: { slug: 'customer' },
+    });
+    if (!customerRole) {
+      throw new ServiceUnavailableException('Customer role not seeded');
+    }
+    await this.prisma.user.create({
+      data: {
+        firstName: firstName?.trim() || null,
+        lastName: lastName?.trim() || null,
+        email: normalized,
+        idRoles: customerRole.id,
+        timezone: 'UTC',
+        customerAuth: {
+          create: {
+            email: normalized,
+            passwordHash: null,
+            status: 'active',
+          },
+        },
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'ldap_customer_import',
+        metadata: JSON.stringify({ email: normalized }),
+      },
+    });
+    return 'created';
+  }
+
+  private ldapSearchCollect(
+    url: string,
+    serviceBindDN: string | undefined,
+    servicePassword: string | undefined,
+    baseDN: string,
+    filter: string,
+    attributes: string[],
+    limit: number,
+  ): Promise<Array<{ dn: string; attrs: Record<string, string[]> }>> {
+    return new Promise((resolve) => {
+      const client = ldap.createClient({
+        url,
+        connectTimeout: 5000,
+        timeout: 15_000,
+      });
+
+      const rows: Array<{ dn: string; attrs: Record<string, string[]> }> = [];
+      let settled = false;
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        try {
+          client.destroy();
+        } catch {
+          /* ignore */
+        }
+        resolve(rows);
+      };
+
+      const runSearch = () => {
+        client.search(
+          baseDN,
+          {
+            filter,
+            scope: 'sub',
+            attributes,
+            paged: false,
+          },
+          (err, res) => {
+            if (err || !res) {
+              finish();
+              return;
+            }
+            res.on('searchEntry', (entry) => {
+              if (rows.length >= limit) return;
+              const dnRaw = entry.dn as unknown;
+              const dn = typeof dnRaw === 'string' ? dnRaw : String(dnRaw);
+              const attrs: Record<string, string[]> = {};
+              for (const attr of entry.attributes) {
+                const raw = attr.values;
+                const arr = Array.isArray(raw)
+                  ? raw
+                  : raw != null
+                    ? [raw]
+                    : [];
+                attrs[attr.type] = arr.map((v) => String(v));
+              }
+              rows.push({ dn, attrs });
+            });
+            res.on('error', () => finish());
+            res.on('end', () => finish());
+          },
+        );
+      };
+
+      if (serviceBindDN && servicePassword) {
+        client.bind(serviceBindDN, servicePassword, (err) => {
+          if (err) {
+            finish();
+            return;
+          }
+          runSearch();
+        });
+      } else {
+        runSearch();
+      }
+
+      client.on('error', () => finish());
+    });
+  }
 }
 
 function escapeLdapFilterValue(s: string): string {

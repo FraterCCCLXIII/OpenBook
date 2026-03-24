@@ -28,7 +28,13 @@ export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];
 
 // ─── Payment status ───────────────────────────────────────────────────────────
 
-export const PAYMENT_STATUSES = ['pending', 'succeeded', 'failed', 'refunded'] as const;
+export const PAYMENT_STATUSES = [
+  'pending',
+  'succeeded',
+  'failed',
+  'refunded',
+  'partially_refunded',
+] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 // ─── Settings schemas per section ────────────────────────────────────────────
@@ -40,7 +46,15 @@ export const generalSettingsSchema = z.object({
   date_format: z.string().optional(),
   time_format: z.enum(['12', '24']).optional(),
   first_weekday: z.string().optional(),
-  google_analytics_code: z.string().optional(),
+  /** Data URL or raw base64; large string stored in `ea_settings`. */
+  company_logo: z.string().max(8_000_000).optional(),
+  company_logo_email_png: z.string().max(8_000_000).optional(),
+  /** Hex color e.g. #2563eb */
+  company_color: z.string().max(32).optional(),
+  /** UI theme hint for public shell */
+  theme: z.enum(['default', 'light', 'dark']).optional(),
+  default_language: z.string().max(16).optional(),
+  default_timezone: z.string().max(128).optional(),
 });
 export type GeneralSettings = z.infer<typeof generalSettingsSchema>;
 
@@ -60,11 +74,14 @@ export const bookingSettingsSchema = z.object({
   require_captcha: z.enum(['0', '1']).optional(),
   customer_notifications: z.enum(['0', '1']).optional(),
   provider_notifications: z.enum(['0', '1']).optional(),
-  display_terms_and_conditions: z.enum(['0', '1']).optional(),
-  terms_and_conditions_content: z.string().optional(),
-  display_cookie_notice: z.enum(['0', '1']).optional(),
-  cookie_notice_content: z.string().optional(),
-  require_phone_number: z.enum(['0', '1']).optional(),
+  limit_provider_customer_access: z.enum(['0', '1']).optional(),
+  limit_secretary_customer_access: z.enum(['0', '1']).optional(),
+  display_any_provider: z.enum(['0', '1']).optional(),
+  display_login_button: z.enum(['0', '1']).optional(),
+  display_language_selector: z.enum(['0', '1']).optional(),
+  display_delete_personal_information: z.enum(['0', '1']).optional(),
+  disable_booking: z.enum(['0', '1']).optional(),
+  disable_booking_message: z.string().max(4096).optional(),
 });
 export type BookingSettings = z.infer<typeof bookingSettingsSchema>;
 
@@ -103,6 +120,11 @@ export const ldapSettingsSchema = z.object({
    * `{"email":"mail","firstName":"givenName","lastName":"sn"}`.
    */
   ldap_field_mapping: z.string().optional(),
+  /**
+   * Filter template for staff directory search / import, e.g. `(&(objectClass=inetOrgPerson)(mail=*${query}*))`.
+   * `${query}` is LDAP-filter escaped.
+   */
+  ldap_directory_search_filter: z.string().optional(),
 });
 export type LdapSettings = z.infer<typeof ldapSettingsSchema>;
 
@@ -115,6 +137,13 @@ export const emailNotificationsSettingsSchema = z.object({
   smtp_password: z.string().optional(),
   notifications_from_email: z.string().email().optional().or(z.literal('')),
   notifications_from_name: z.string().optional(),
+  appointment_change_notify_customer: z.enum(['0', '1']).optional(),
+  appointment_change_notify_provider: z.enum(['0', '1']).optional(),
+  appointment_change_notify_admin: z.enum(['0', '1']).optional(),
+  appointment_change_notify_staff: z.enum(['0', '1']).optional(),
+  customer_profile_completion_notifications: z.enum(['0', '1']).optional(),
+  customer_login_otp_notifications: z.enum(['0', '1']).optional(),
+  account_recovery_notifications: z.enum(['0', '1']).optional(),
 });
 export type EmailNotificationsSettings = z.infer<typeof emailNotificationsSettingsSchema>;
 
@@ -143,9 +172,20 @@ export const customerLoginSettingsSchema = z.object({
 export type CustomerLoginSettings = z.infer<typeof customerLoginSettingsSchema>;
 
 export const customerProfilesSettingsSchema = z.object({
+  require_first_name: z.enum(['0', '1']).optional(),
   require_last_name: z.enum(['0', '1']).optional(),
   require_phone_number: z.enum(['0', '1']).optional(),
   require_address: z.enum(['0', '1']).optional(),
+  require_notes: z.enum(['0', '1']).optional(),
+  display_first_name: z.enum(['0', '1']).optional(),
+  display_last_name: z.enum(['0', '1']).optional(),
+  display_email: z.enum(['0', '1']).optional(),
+  display_phone_number: z.enum(['0', '1']).optional(),
+  display_address: z.enum(['0', '1']).optional(),
+  display_city: z.enum(['0', '1']).optional(),
+  display_zip_code: z.enum(['0', '1']).optional(),
+  display_notes: z.enum(['0', '1']).optional(),
+  display_timezone: z.enum(['0', '1']).optional(),
 });
 export type CustomerProfilesSettings = z.infer<typeof customerProfilesSettingsSchema>;
 

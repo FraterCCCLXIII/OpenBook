@@ -18,9 +18,9 @@ Architecture constraints (stack choices) live in **architecture-decisions.md**; 
 
 In place: Prisma + MySQL (including `openbook_*` tables), JWT auth (staff + customer), `AvailabilityService` + public booking (`POST /api/booking/appointments`), customer register/profile/appointments, staff calendar (FullCalendar with provider/customer/service pickers, blocked and unavailability CRUD, drag/move/resize for appointments and unavailabilities), CRM detail (profile + address fields, customer notes, alerts, custom fields), services CRUD, provider/secretary/admin team CRUD in the staff UI (`users` permission), provider booking detail, staff account working plan + Google Calendar link, per-section settings validated with `@openbook/shared` Zod (including `customer-profiles` and `service-areas`), LDAP setting keys aligned with `AuthService.ldapBind`, Stripe webhook idempotency + BullMQ job enqueue (Redis optional), REST v1 `services` / `appointments`, seed data, CI.
 
-**Remaining polish:** Deeper Stripe/billing parity vs PHP fork (receipts, partial refunds) as needed; full GeoNames CSV import pipeline; LDAP user import modal.
+**Remaining polish:** Optional further Stripe parity (invoices, hosted invoice URLs) if product requires it.
 
-**Recently closed (parity / UX):** Optional **CSRF** (`OPENBOOK_CSRF_ENABLED` + `VITE_OPENBOOK_CSRF`, `GET /api/auth/csrf-token`, ADR-005). **GeoNames** staff tools + postal lookup API; **UserFile** uploads on customer detail; **consents** staff report + customer page legal panels from `GET /api/settings/legal`; **LDAP** search filter + field-mapping settings + richer bind; **billing** summary counts (pending/refunded); **jobs** `geonames-import` stub; **customer bookings** multi-attendant overlap check; **Stripe** customer refund route removed (staff refunds only).
+**Recently closed (parity / UX):** **GeoNames** full tab-file import (multipart upload → worker → DB, unique `(country_code, postal_code)`). **LDAP** directory search + customer import UI on LDAP settings. **Billing** partial refunds, `partially_refunded` status, Stripe receipt links on transactions, `charge.refunded` webhook sync. **Legal HTML** sanitized with **DOMPurify** on customer consents. **CSRF / LDAP / geonames** unit tests expanded.
 
 ---
 

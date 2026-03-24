@@ -1,6 +1,6 @@
 /**
  * Thin email sender used by the BullMQ worker (runs outside NestJS DI).
- * Reads SMTP config from env; falls back to Mailpit on localhost:1025.
+ * Reads SMTP config from env; default port 1025 (set SMTP_PORT for docker-compose Mailpit, e.g. 1027).
  * Templates are file-based HTML with {{VARIABLE}} placeholders.
  */
 import { readFileSync } from 'node:fs';
@@ -58,6 +58,10 @@ export interface BookingEmailData {
   serviceName: string;
   startDatetime: string;
   appointmentId: string;
+  /** When false, skips customer confirmation email (settings-driven). */
+  sendCustomerEmail?: boolean;
+  /** When false, skips provider notification email (settings-driven). */
+  sendProviderEmail?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -139,14 +143,19 @@ export async function sendBookingConfirmation(
     APPOINTMENT_ID: data.appointmentId,
   };
 
-  await t.sendMail({
-    from,
-    to: data.customerEmail,
-    subject: `Booking Confirmed — ${data.serviceName} on ${formatDate(data.startDatetime)}`,
-    html: renderTemplate(getCustomerTemplate(), vars),
-  });
+  const sendCust = data.sendCustomerEmail !== false;
+  const sendProv = data.sendProviderEmail !== false;
 
-  if (data.providerEmail) {
+  if (sendCust) {
+    await t.sendMail({
+      from,
+      to: data.customerEmail,
+      subject: `Booking Confirmed — ${data.serviceName} on ${formatDate(data.startDatetime)}`,
+      html: renderTemplate(getCustomerTemplate(), vars),
+    });
+  }
+
+  if (sendProv && data.providerEmail) {
     await t.sendMail({
       from,
       to: data.providerEmail,

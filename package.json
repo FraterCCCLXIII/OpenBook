@@ -2,6 +2,7 @@
   "name": "openbook",
   "private": true,
   "scripts": {
+    "stack:up": "docker compose up -d && bash scripts/ensure-stack.sh",
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",

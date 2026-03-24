@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
@@ -9,13 +10,21 @@ const workspaceRoot = path.dirname(fileURLToPath(import.meta.url));
 // Bundle shared package from TypeScript source. The published dist/ is CommonJS for Nest;
 // Vite needs ESM named exports in the browser.
 const sharedEntry = path.resolve(workspaceRoot, '../../packages/shared/src/index.ts');
+const requireFromWeb = createRequire(path.join(workspaceRoot, 'package.json'));
+const dompurifyMain = requireFromWeb.resolve('dompurify');
+const dompurifyRoot = path.join(path.dirname(dompurifyMain), '..');
 
 // https://vite.dev/config/
 export default defineConfig({
   resolve: {
     alias: {
       '@openbook/shared': sharedEntry,
+      // pnpm: explicit path avoids occasional failed resolution of the symlinked package
+      dompurify: dompurifyRoot,
     },
+  },
+  optimizeDeps: {
+    include: ['dompurify'],
   },
   plugins: [react(), tailwindcss()],
   server: {

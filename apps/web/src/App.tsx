@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import {
+  StaffSettingsIntegrationsPage,
   StaffSettingsLayout,
   StaffSettingsSectionPage,
 } from './pages/staff/settings/StaffSettingsSections';
@@ -47,6 +48,11 @@ const StaffFormsPage = lazy(() =>
 );
 const StaffWebhooksPage = lazy(() =>
   import('./pages/staff/StaffWebhooksPage').then((m) => ({ default: m.StaffWebhooksPage })),
+);
+const StaffCustomFieldsPage = lazy(() =>
+  import('./pages/staff/StaffCustomFieldsPage').then((m) => ({
+    default: m.StaffCustomFieldsPage,
+  })),
 );
 const CustomerFormDetailPage = lazy(() =>
   import('./pages/customer/CustomerFormDetailPage').then((m) => ({
@@ -119,11 +125,13 @@ export default function App() {
             <Route path="/staff/secretaries" element={<StaffSecretariesPage />} />
             <Route path="/staff/admins" element={<StaffAdminsPage />} />
             <Route path="/staff/forms" element={<StaffFormsPage />} />
+            <Route path="/staff/custom-fields" element={<StaffCustomFieldsPage />} />
             <Route path="/staff/webhooks" element={<StaffWebhooksPage />} />
             <Route path="/staff/tools" element={<StaffToolsPage />} />
             <Route path="/staff/consents-report" element={<StaffConsentsReportPage />} />
             <Route path="/staff/settings" element={<StaffSettingsLayout />}>
               <Route index element={<Navigate to="general" replace />} />
+              <Route path="integrations" element={<StaffSettingsIntegrationsPage />} />
               <Route path=":section" element={<StaffSettingsSectionPage />} />
             </Route>
             <Route path="/staff/account" element={<StaffAccountPage />} />

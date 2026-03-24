@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import {
   SettingsController,
@@ -7,7 +7,7 @@ import {
 import { SettingsService } from './settings.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [forwardRef(() => AuthModule)],
   controllers: [SettingsController, StaffSettingsController],
   providers: [SettingsService],
   exports: [SettingsService],

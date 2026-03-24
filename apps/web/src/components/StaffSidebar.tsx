@@ -6,6 +6,7 @@ import {
   Briefcase,
   Calendar,
   CalendarDays,
+  ClipboardList,
   FileText,
   LayoutDashboard,
   List,
@@ -199,6 +200,14 @@ export function StaffSidebar() {
         )}
         {canViewStaff(staff, 'system_settings') && (
           <SidebarNavLink to="/staff/forms" collapsed={collapsed} label="Forms" icon={FileText} />
+        )}
+        {canViewStaff(staff, 'system_settings') && (
+          <SidebarNavLink
+            to="/staff/custom-fields"
+            collapsed={collapsed}
+            label="Custom fields"
+            icon={ClipboardList}
+          />
         )}
         {canViewStaff(staff, 'system_settings') && (
           <SidebarNavLink

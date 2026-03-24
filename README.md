@@ -72,7 +72,7 @@ Without `DATABASE_URL`, login and booking flows will fail while smoke tests stil
 
 4. Optional — background jobs (BullMQ + Redis):
 
-   - Set `REDIS_URL` (e.g. `redis://127.0.0.1:6379`) in `apps/api/.env`.
+   - Set `REDIS_URL` (e.g. `redis://127.0.0.1:6380`) in `apps/api/.env`.
    - After `pnpm run build`, run the worker: `pnpm --filter @openbook/api run worker` (processes queues such as `booking-confirmation`).
 
 5. Optional — Stripe webhooks:
@@ -115,12 +115,12 @@ Anonymous booking: `GET /api/booking/services`, `GET /api/booking/services/:id/p
 | `STRIPE_SECRET_KEY` | No | Stripe secret key for payments |
 | `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook signing secret |
 | `OPENBOOK_CSRF_ENABLED` | No | Set `true` or `1` to require `X-CSRF-Token` + cookie from `GET /api/auth/csrf-token` on mutating requests (enable `VITE_OPENBOOK_CSRF=true` in the web app). |
-| `UPLOAD_DIR` | No | Absolute or relative path for customer file uploads (`user-files` subfolder); defaults to `uploads` under the API cwd. |
+| `UPLOAD_DIR` | No | Absolute or relative path for customer file uploads (`user-files/`) and GeoNames imports (`geonames/`); defaults to `uploads` under the API cwd. |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth client ID (calendar sync) |
 | `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
 | `GOOGLE_REDIRECT_URI` | No | OAuth redirect URI (defaults to `APP_URL + /api/integrations/google/callback`) |
 | `SMTP_HOST` | No | SMTP host for email notifications. Default: `localhost` (Mailpit in docker-compose). |
-| `SMTP_PORT` | No | SMTP port. Default: `1025` (Mailpit). Production: `587` (STARTTLS) or `465` (SSL). |
+| `SMTP_PORT` | No | SMTP port. Default: `1025`; use `1027` with docker-compose Mailpit. Production: `587` (STARTTLS) or `465` (SSL). |
 | `SMTP_USER` | No | SMTP username. Leave blank for Mailpit local dev. |
 | `SMTP_PASS` | No | SMTP password. Leave blank for Mailpit local dev. |
 
@@ -130,11 +130,16 @@ Anonymous booking: `GET /api/booking/services`, `GET /api/booking/services/:id/p
 
 ```bash
 docker compose up -d
+docker compose run --rm migrate
 ```
 
+The second command applies Prisma migrations to the compose MySQL (`DATABASE_URL` uses the `mysql` service hostname). From the host instead, run `pnpm exec prisma migrate deploy` in `apps/api` with `DATABASE_URL` pointing at `127.0.0.1:3306`.
+
 - MySQL: `localhost:3306` (user/password/db: `openbook` / `openbook` / `openbook`)
-- Redis: `localhost:6379`
-- Mailpit UI: http://localhost:8025 — SMTP on port `1025`
+- Redis: `localhost:6380` (mapped from container `6379` so it can run beside another Redis on `6379`)
+- Mailpit UI: http://localhost:8027 — SMTP on port `1027`
+
+If login or other API calls return **503** / “Database connection failed”, MySQL is not reachable from the API process (start `docker compose up -d mysql`, or fix `DATABASE_URL` if the API runs inside Docker).
 
 ## Workspace layout
 

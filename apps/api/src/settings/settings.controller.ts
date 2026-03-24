@@ -6,6 +6,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -116,5 +117,14 @@ export class StaffSettingsController {
     }
     const keys = Object.keys(schema.shape);
     return this.settings.getSettingsByNames(keys);
+  }
+
+  /** Push global `company_working_plan` to all provider accounts. */
+  @Post('apply-global-working-plan')
+  async applyGlobalWorkingPlan(@Req() req: RequestWithStaff) {
+    if (!can(req.staffUser.permissions, 'system_settings', 'edit')) {
+      throw new ForbiddenException();
+    }
+    return this.settings.applyCompanyWorkingPlanToAllProviders();
   }
 }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SettingsModule } from '../settings/settings.module';
 import { StaffAccountController } from './staff-account.controller';
 import { StaffAuditController } from './staff-audit.controller';
 import { StaffBillingController } from './staff-billing.controller';
@@ -16,9 +17,11 @@ import { StaffWebhooksController } from './staff-webhooks.controller';
 import { StaffProvidersController } from './staff-providers.controller';
 import { StaffConsentsController } from './staff-consents.controller';
 import { StaffToolsController } from './staff-tools.controller';
+import { StaffLdapController } from './staff-ldap.controller';
+import { StaffCustomFieldsController } from './staff-custom-fields.controller';
 
 @Module({
-  imports: [AuthModule, PrismaModule],
+  imports: [AuthModule, PrismaModule, SettingsModule],
   controllers: [
     StaffAccountController,
     StaffAuditController,
@@ -35,6 +38,8 @@ import { StaffToolsController } from './staff-tools.controller';
     StaffProvidersController,
     StaffConsentsController,
     StaffToolsController,
+    StaffLdapController,
+    StaffCustomFieldsController,
   ],
 })
 export class StaffModule {}

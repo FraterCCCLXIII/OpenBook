@@ -3,9 +3,19 @@
  *
  * Usage: `pnpm run worker` from apps/api (requires REDIS_URL).
  */
+import { unlink } from 'node:fs/promises';
+import { join } from 'node:path';
 import { Worker } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
+import {
+  assertGeonamesFileUnderRoot,
+  runGeonamesImportFromFile,
+} from '../geonames/geonames-import';
 import { sendBookingConfirmation } from './email.service';
+
+function workerUploadRoot(): string {
+  return process.env.UPLOAD_DIR?.trim() || join(process.cwd(), 'uploads');
+}
 
 const url = process.env.REDIS_URL?.trim();
 if (!url) {
@@ -33,16 +43,64 @@ const worker = new Worker(
     }
 
     if (job.name === 'geonames-import') {
-      const data = job.data as { source?: string; countryCode?: string };
-      console.log(
-        `[openbook] geonames-import queued (source=${data.source ?? 'unknown'}, country=${data.countryCode ?? 'all'})`,
-      );
-      await prisma.auditLog.create({
-        data: {
-          action: 'geonames_import_job',
-          metadata: JSON.stringify(data ?? {}),
-        },
-      });
+      const data = job.data as {
+        source?: string;
+        countryCode?: string;
+        filePath?: string;
+        truncate?: boolean;
+      };
+      const root = workerUploadRoot();
+      if (!data.filePath) {
+        console.warn('[openbook] geonames-import: missing filePath');
+        await prisma.auditLog.create({
+          data: {
+            action: 'geonames_import_job',
+            metadata: JSON.stringify({ error: 'missing_file_path', ...data }),
+          },
+        });
+      } else {
+        let safePath: string;
+        try {
+          safePath = assertGeonamesFileUnderRoot(data.filePath, root);
+        } catch (e) {
+          console.error('[openbook] geonames-import: invalid path', e);
+          await prisma.auditLog.create({
+            data: {
+              action: 'geonames_import_job',
+              metadata: JSON.stringify({
+                error: String(e),
+                filePath: data.filePath,
+              }),
+            },
+          });
+          throw e;
+        }
+        try {
+          const result = await runGeonamesImportFromFile(prisma, safePath, {
+            truncate: data.truncate,
+            countryFilter: data.countryCode,
+          });
+          console.log(
+            `[openbook] geonames-import done inserted=${result.inserted} skipped=${result.skipped} lines=${result.linesRead}`,
+          );
+          await prisma.auditLog.create({
+            data: {
+              action: 'geonames_import_complete',
+              metadata: JSON.stringify({
+                ...result,
+                countryCode: data.countryCode ?? null,
+                truncate: data.truncate ?? false,
+              }),
+            },
+          });
+        } finally {
+          try {
+            await unlink(safePath);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     }
 
     await Promise.resolve();
@@ -97,6 +155,12 @@ async function handleBookingConfirmation(appointmentId: string): Promise<void> {
       .filter(Boolean)
       .join(' ') || 'Provider';
 
+  const [emailOn, custOn, provOn] = await Promise.all([
+    prisma.setting.findFirst({ where: { name: 'email_notifications' } }),
+    prisma.setting.findFirst({ where: { name: 'customer_notifications' } }),
+    prisma.setting.findFirst({ where: { name: 'provider_notifications' } }),
+  ]);
+
   try {
     await sendBookingConfirmation({
       companyName,
@@ -108,6 +172,10 @@ async function handleBookingConfirmation(appointmentId: string): Promise<void> {
       startDatetime:
         appointment.startDatetime?.toISOString() ?? new Date().toISOString(),
       appointmentId,
+      sendCustomerEmail:
+        emailOn?.value !== '0' && custOn?.value !== '0',
+      sendProviderEmail:
+        emailOn?.value !== '0' && provOn?.value !== '0',
     });
 
     await prisma.auditLog.create({

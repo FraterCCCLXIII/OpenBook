@@ -171,7 +171,9 @@ export class CustomerAppointmentsController {
     const latest = a.payments[0];
     const price = a.service?.price;
     const hasPrice = price != null && Number(price) > 0;
-    const paid = latest?.status === 'succeeded';
+    const paid =
+      latest?.status === 'succeeded' ||
+      latest?.status === 'partially_refunded';
     const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
     return {
       id: a.id.toString(),
@@ -271,7 +273,9 @@ export class CustomerAppointmentsController {
     const latest = updated.payments[0];
     const price = updated.service?.price;
     const hasPrice = price != null && Number(price) > 0;
-    const paid = latest?.status === 'succeeded';
+    const paid =
+      latest?.status === 'succeeded' ||
+      latest?.status === 'partially_refunded';
     const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
 
     return {

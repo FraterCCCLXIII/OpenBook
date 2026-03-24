@@ -97,6 +97,36 @@ export class StripeWebhookController {
         where: { stripePaymentIntentId: pi.id },
         data: { status: 'succeeded', stripeEventId: event.id },
       });
+    } else if (event.type === 'charge.refunded') {
+      const charge = event.data.object as Stripe.Charge;
+      const piRaw = charge.payment_intent;
+      const piId =
+        typeof piRaw === 'string'
+          ? piRaw
+          : piRaw &&
+              typeof piRaw === 'object' &&
+              'id' in piRaw &&
+              typeof (piRaw as { id: unknown }).id === 'string'
+            ? (piRaw as { id: string }).id
+            : null;
+      if (piId) {
+        const pi = await stripe.paymentIntents.retrieve(piId, {
+          expand: ['latest_charge'],
+        });
+        const latest = pi.latest_charge as Stripe.Charge;
+        const refunded = latest.amount_refunded ?? 0;
+        const total = pi.amount_received ?? 0;
+        const status =
+          refunded >= total
+            ? 'refunded'
+            : refunded > 0
+              ? 'partially_refunded'
+              : 'succeeded';
+        await this.prisma.appointmentPayment.updateMany({
+          where: { stripePaymentIntentId: piId },
+          data: { status, stripeEventId: event.id },
+        });
+      }
     }
 
     await this.prisma.auditLog.create({

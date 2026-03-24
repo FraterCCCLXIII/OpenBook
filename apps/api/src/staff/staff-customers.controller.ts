@@ -21,6 +21,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import {
   StaffAuthGuard,
   type RequestWithStaff,
@@ -40,7 +41,37 @@ function ensureUploadDir(dir: string) {
 @Controller('staff/customers')
 @UseGuards(StaffAuthGuard)
 export class StaffCustomersController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
+
+  /** When enabled, providers/secretaries cannot use the CRM customer directory. */
+  private async assertCustomerDirectoryAccess(
+    req: RequestWithStaff,
+  ): Promise<void> {
+    const slug = req.staffUser.roleSlug;
+    if (slug === 'provider') {
+      const v = await this.settings.getSettingByName(
+        'limit_provider_customer_access',
+      );
+      if (v === '1') {
+        throw new ForbiddenException(
+          'Customer directory is disabled for providers.',
+        );
+      }
+    }
+    if (slug === 'secretary') {
+      const v = await this.settings.getSettingByName(
+        'limit_secretary_customer_access',
+      );
+      if (v === '1') {
+        throw new ForbiddenException(
+          'Customer directory is disabled for secretaries.',
+        );
+      }
+    }
+  }
 
   private async assertCustomerUser(id: string): Promise<bigint> {
     const customerRole = await this.prisma.role.findFirst({
@@ -73,6 +104,7 @@ export class StaffCustomersController {
     if (!canView(req.staffUser.permissions, 'customers')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const limit = Math.min(
       100,
       Math.max(1, Number.parseInt(limitStr ?? '20', 10) || 20),
@@ -125,6 +157,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const uid = await this.assertCustomerUser(id);
     const text = body.notes?.trim();
     if (!text) {
@@ -152,6 +185,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const uid = await this.assertCustomerUser(id);
     let nid: bigint;
     try {
@@ -177,6 +211,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const uid = await this.assertCustomerUser(id);
     const message = body.message?.trim();
     if (!message) {
@@ -203,6 +238,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const uid = await this.assertCustomerUser(id);
     let aid: bigint;
     try {
@@ -239,6 +275,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const uid = await this.assertCustomerUser(id);
     let aid: bigint;
     try {
@@ -264,6 +301,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const uid = await this.assertCustomerUser(id);
     const values = body.values ?? {};
     for (const [fieldIdStr, raw] of Object.entries(values)) {
@@ -306,6 +344,7 @@ export class StaffCustomersController {
     if (!canView(req.staffUser.permissions, 'customers')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const uid = await this.assertCustomerUser(id);
     const rows = await this.prisma.userFile.findMany({
       where: { idUsers: uid },
@@ -351,6 +390,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     if (!file?.filename) {
       throw new BadRequestException('file is required');
     }
@@ -376,6 +416,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const uid = await this.assertCustomerUser(id);
     let fid: bigint;
     try {
@@ -402,6 +443,7 @@ export class StaffCustomersController {
     if (!canView(req.staffUser.permissions, 'customers')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const customerRole = await this.prisma.role.findFirst({
       where: { slug: 'customer' },
     });
@@ -499,6 +541,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'add')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const email = body.email?.trim().toLowerCase();
     if (!email) {
       throw new BadRequestException('email is required');
@@ -535,6 +578,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'delete')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const customerRole = await this.prisma.role.findFirst({
       where: { slug: 'customer' },
     });
@@ -574,6 +618,7 @@ export class StaffCustomersController {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
     }
+    await this.assertCustomerDirectoryAccess(req);
     const customerRole = await this.prisma.role.findFirst({
       where: { slug: 'customer' },
     });

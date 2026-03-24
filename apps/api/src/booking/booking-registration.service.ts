@@ -7,7 +7,24 @@ import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { JobsQueueService } from '../jobs/jobs-queue.service';
+import { SettingsService } from '../settings/settings.service';
 import { BookingCatalogService } from './booking-catalog.service';
+
+async function verifyTurnstileToken(token: string | undefined): Promise<boolean> {
+  const secret = process.env.OPENBOOK_TURNSTILE_SECRET_KEY?.trim();
+  if (!secret) return true;
+  if (!token?.trim()) return false;
+  const res = await fetch(
+    'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret, response: token }),
+    },
+  );
+  const data = (await res.json()) as { success?: boolean };
+  return data.success === true;
+}
 
 function normalizeHm(hm: string): string {
   const parts = hm.trim().split(':');
@@ -32,6 +49,7 @@ export class BookingRegistrationService {
     private readonly availability: AvailabilityService,
     private readonly catalog: BookingCatalogService,
     private readonly jobs: JobsQueueService,
+    private readonly settings: SettingsService,
   ) {}
 
   async createGuestAppointment(input: {
@@ -44,12 +62,46 @@ export class BookingRegistrationService {
     email: string;
     phone?: string;
     notes?: string;
+    address?: string;
+    city?: string;
+    zip_code?: string;
+    captcha_token?: string;
+    custom_fields?: Record<string, string>;
   }) {
     const email = input.email.trim().toLowerCase();
-    if (!email || !input.firstName?.trim() || !input.lastName?.trim()) {
-      throw new BadRequestException(
-        'first_name, last_name, and email are required',
-      );
+    const policy = await this.settings.getSettingsByNames([
+      'require_captcha',
+      'require_phone_number',
+      'require_notes',
+      'require_first_name',
+      'require_last_name',
+      'require_address',
+    ]);
+
+    if (policy.require_captcha === '1') {
+      const ok = await verifyTurnstileToken(input.captcha_token);
+      if (!ok) {
+        throw new BadRequestException('CAPTCHA verification failed');
+      }
+    }
+
+    if (!email) {
+      throw new BadRequestException('email is required');
+    }
+    if (policy.require_first_name !== '0' && !input.firstName?.trim()) {
+      throw new BadRequestException('first_name is required');
+    }
+    if (policy.require_last_name !== '0' && !input.lastName?.trim()) {
+      throw new BadRequestException('last_name is required');
+    }
+    if (policy.require_phone_number === '1' && !input.phone?.trim()) {
+      throw new BadRequestException('phone is required');
+    }
+    if (policy.require_notes === '1' && !input.notes?.trim()) {
+      throw new BadRequestException('notes is required');
+    }
+    if (policy.require_address === '1' && !input.address?.trim()) {
+      throw new BadRequestException('address is required');
     }
 
     await this.catalog.assertProviderOffersService(
@@ -94,11 +146,24 @@ export class BookingRegistrationService {
       );
     }
 
+    const customParts: string[] = [];
+    if (input.custom_fields) {
+      for (const [fid, val] of Object.entries(input.custom_fields)) {
+        if (val?.trim()) {
+          customParts.push(`custom_field_${fid}: ${val.trim()}`);
+        }
+      }
+    }
+
     const guestLines = [
       `Guest: ${input.firstName.trim()} ${input.lastName.trim()}`,
       `Email: ${email}`,
       input.phone?.trim() ? `Phone: ${input.phone.trim()}` : null,
+      input.address?.trim() ? `Address: ${input.address.trim()}` : null,
+      input.city?.trim() ? `City: ${input.city.trim()}` : null,
+      input.zip_code?.trim() ? `ZIP: ${input.zip_code.trim()}` : null,
       input.notes?.trim() ? `Notes: ${input.notes.trim()}` : null,
+      customParts.length ? customParts.join('\n') : null,
     ]
       .filter(Boolean)
       .join('\n');

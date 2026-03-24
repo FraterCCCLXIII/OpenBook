@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -13,10 +14,17 @@ const PUBLIC_SETTING_NAMES = new Set([
   'company_logo',
   'company_email',
   'company_link',
+  'company_color',
+  'theme',
   'date_format',
   'time_format',
+  'default_language',
+  'default_timezone',
   'require_phone_number',
   'require_notes',
+  'require_first_name',
+  'require_last_name',
+  'require_address',
   'display_first_name',
   'display_last_name',
   'display_email',
@@ -26,6 +34,14 @@ const PUBLIC_SETTING_NAMES = new Set([
   'display_zip_code',
   'display_notes',
   'display_timezone',
+  'display_language_selector',
+  'display_login_button',
+  'disable_booking',
+  'disable_booking_message',
+  'customer_login_enabled',
+  'customer_login_mode',
+  /** Public booking step; paired with env `OPENBOOK_TURNSTILE_SITE_KEY` for the widget. */
+  'require_captcha',
 ]);
 
 @Injectable()
@@ -41,6 +57,10 @@ export class SettingsService {
       if (r.name && r.value !== null && PUBLIC_SETTING_NAMES.has(r.name)) {
         out[r.name] = r.value;
       }
+    }
+    const siteKey = process.env.OPENBOOK_TURNSTILE_SITE_KEY?.trim();
+    if (siteKey) {
+      out.turnstile_site_key = siteKey;
     }
     return out;
   }
@@ -117,5 +137,40 @@ export class SettingsService {
       throw new NotFoundException('Setting not found');
     }
     return row.value;
+  }
+
+  /**
+   * Copy `company_working_plan` from global settings to every provider's `ea_user_settings.working_plan`.
+   */
+  async applyCompanyWorkingPlanToAllProviders(): Promise<{ updated: number }> {
+    const plan = await this.getSettingByName('company_working_plan');
+    if (!plan?.trim()) {
+      throw new BadRequestException('company_working_plan is empty; save Business settings first.');
+    }
+    try {
+      JSON.parse(plan);
+    } catch {
+      throw new BadRequestException('company_working_plan must be valid JSON');
+    }
+    const providerRole = await this.prisma.role.findFirst({
+      where: { slug: 'provider' },
+    });
+    if (!providerRole) {
+      return { updated: 0 };
+    }
+    const providers = await this.prisma.user.findMany({
+      where: { idRoles: providerRole.id },
+      select: { id: true },
+    });
+    let updated = 0;
+    for (const p of providers) {
+      await this.prisma.userSettings.upsert({
+        where: { idUsers: p.id },
+        create: { idUsers: p.id, workingPlan: plan },
+        update: { workingPlan: plan },
+      });
+      updated++;
+    }
+    return { updated };
   }
 }

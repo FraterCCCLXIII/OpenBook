@@ -13,6 +13,7 @@ import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CustomerOtpService } from './customer-otp.service';
 import { sendOtpCode } from '../jobs/email.service';
+import { SettingsService } from '../settings/settings.service';
 import { readAuthToken } from './read-auth-token';
 import {
   CustomerAuthGuard,
@@ -24,6 +25,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly otp: CustomerOtpService,
+    private readonly settings: SettingsService,
   ) {}
 
   /** Double-submit CSRF token for SPA when `OPENBOOK_CSRF_ENABLED` is set (see ADR-004 / ADR-005). */
@@ -118,6 +120,14 @@ export class AuthController {
   async requestOtp(@Body() body: { email?: string }) {
     if (!body.email?.trim()) {
       throw new BadRequestException('email is required');
+    }
+    const otpEnabled = await this.settings.getSettingByName(
+      'customer_login_otp_notifications',
+    );
+    if (otpEnabled === '0') {
+      throw new BadRequestException(
+        'OTP login emails are disabled by administrator settings.',
+      );
     }
     const email = body.email.trim();
     const code = await this.otp.requestCode(email);

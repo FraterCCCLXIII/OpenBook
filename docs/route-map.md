@@ -27,13 +27,18 @@ This table tracks parity between the Easy!Appointments fork ([`easyappointments-
 | `/logs` | `/staff/logs` | `GET /api/staff/audit-logs` (`openbook_audit_logs`) | Admin (`system_settings`) |
 | `/provider/bookings` | `/staff/provider/bookings` | `GET /api/staff/provider/bookings` | Provider role |
 | `/provider/bookings/:num` | `/staff/provider/bookings/:id` | Detail | |
-| `/general_settings` | `/staff/settings/general` | `SettingsModule` | Admin settings |
-| `/business_settings` | `/staff/settings/business` | `SettingsModule` | |
-| `/booking_settings` | `/staff/settings/booking` | `SettingsModule` | |
-| `/api_settings` | `/staff/settings/api` | `SettingsModule` + Bearer token | |
-| `/stripe_settings` | `/staff/settings/stripe` | `SettingsModule` | |
-| `/service_area_settings` | `/staff/settings/service-areas` | `SettingsModule` | Fork feature |
-| `/ldap_settings` | `/staff/settings/ldap` | `SettingsModule` | |
+| `/general_settings` | `/staff/settings/general` | `SettingsModule` — `GET/PATCH /api/staff/settings/section/general` (`generalSettingsSchema` in `@openbook/shared`) | Company, branding, localization |
+| `/business_settings` | `/staff/settings/business` | `SettingsModule` — `.../section/business` (`businessSettingsSchema`) | Address, global working plan, notes |
+| `/booking_settings` | `/staff/settings/booking` | `SettingsModule` — `.../section/booking` (`bookingSettingsSchema`) | Booking rules, captcha, notifications |
+| `/api_settings` | `/staff/settings/api` | `SettingsModule` — `.../section/api` (`apiSettingsSchema`) | Bearer token |
+| `/stripe_settings` | `/staff/settings/stripe` | `SettingsModule` — `.../section/stripe` (`stripeSettingsSchema`) | Stripe keys |
+| `/email_notifications_settings` | `/staff/settings/email-notifications` | `SettingsModule` — `.../section/email-notifications` (`emailNotificationsSettingsSchema`) | SMTP + notification toggles |
+| `/legal_settings` | `/staff/settings/legal` | `SettingsModule` — `.../section/legal` (`legalSettingsSchema`) | T&C, cookies, privacy copy |
+| `/google_analytics_settings` (integrations) | `/staff/settings/analytics` | `SettingsModule` — `.../section/analytics` (`analyticsSettingsSchema`) | GA + Matomo |
+| `/customer_login_settings` | `/staff/settings/customer-login` | `SettingsModule` — `.../section/customer-login` (`customerLoginSettingsSchema`) | Portal + login mode |
+| `/customer_profiles_settings` | `/staff/settings/customer-profiles` | `SettingsModule` — `.../section/customer-profiles` (`customerProfilesSettingsSchema`) | Field display/require |
+| `/service_area_settings` | `/staff/settings/service-areas` | `SettingsModule` — `.../section/service-areas` (`serviceAreasSettingsSchema`) | Fork feature |
+| `/ldap_settings` | `/staff/settings/ldap` | `SettingsModule` — `.../section/ldap` (`ldapSettingsSchema`) | + LDAP import/search if enabled |
 | `/account` (staff) | `/staff/account` | `StaffAccountController` — `GET/PATCH /api/staff/account` (profile + `working_plan` / `working_plan_exceptions`) | Profile fields, timezone, structured working hours + exceptions JSON, Google Calendar block |
 | `/api/v1/*` | Same path prefix | `ApiV1Module` — full CRUD for services, appointments, customers, providers, admins, secretaries, service-categories, unavailabilities, blocked-periods, webhooks, settings, availabilities | REST + Bearer (`OPENBOOK_API_TOKEN`) |
 
@@ -48,13 +53,13 @@ This table tracks parity between the Easy!Appointments fork ([`easyappointments-
 | — | — | `IntegrationsModule` — `GET /api/integrations/google/auth`, `GET /api/integrations/google/callback`, `POST /api/integrations/google/sync` | Google Calendar OAuth |
 | — | `/staff/dashboard` | `StaffDashboardController` — `GET /api/staff/dashboard/stats` | Real-time stats |
 | — | `/staff/settings/:section` | `SettingsController` — `GET/PATCH /api/staff/settings/section/:section` | Per-section settings |
-| — | — | `POST /api/stripe/checkout`; staff refunds `POST /api/staff/billing/refund/:paymentId` | Stripe Checkout; refunds staff-only |
+| — | — | `POST /api/stripe/checkout`; staff refunds `POST /api/staff/billing/refund/:paymentId` (optional JSON `{ amountCents }`); `GET /api/staff/billing/transactions` includes Stripe `receiptUrl` when available | Stripe Checkout; partial/full refunds; receipts |
 | — | — | `POST /api/auth/customer/request-otp`, `POST /api/auth/customer/verify-otp` | Customer OTP auth |
 | — | `/customer/consents` | `CustomerConsentsController` — `GET/POST /api/customer/consents`; `GET /api/settings/legal` — public legal copy | Privacy & consents + expandable T&amp;C / privacy from Legal settings |
 | — | `/staff/tools` | `StaffToolsController` — `GET /api/staff/tools/postal-lookup` | GeoNames postal search (`ea_geonames_postal_codes`) |
 | — | `/staff/consents-report` | `StaffConsentsController` — `GET /api/staff/consents` | Staff consent audit (`ea_consents`) |
 | — | — | `GET /api/auth/csrf-token` | Optional CSRF token (when `OPENBOOK_CSRF_ENABLED`) |
-| — | — | `POST /api/staff/system/geonames-import` | Queue GeoNames import stub (BullMQ + worker) |
+| — | — | `POST /api/staff/system/geonames-import` (multipart `file`, optional `truncate`, `countryCode`) | Queue GeoNames tab file import (BullMQ worker → `ea_geonames_postal_codes`) |
 | — | `/staff/customers/:id` (files) | `GET/POST/DELETE /api/staff/customers/:id/files` | Customer file attachments (`ea_user_files`) |
 | — | — | `POST /api/customer/appointments` | Customer books new appointment |
 | — | — | `POST /api/staff/customers`, `DELETE /api/staff/customers/:id` | Staff create/delete customer |
@@ -63,7 +68,7 @@ This table tracks parity between the Easy!Appointments fork ([`easyappointments-
 | — | — | `GET /api/integrations/google/status`, `DELETE /api/integrations/google/disconnect` | Google Calendar status + disconnect |
 | — | `/staff/settings/customer-profiles` | `StaffSettingsController` — `GET/PATCH /api/staff/settings/section/customer-profiles` (`customerProfilesSettingsSchema`) | Customer profile required-field flags |
 | — | `/staff/settings/service-areas` | `StaffSettingsController` — `GET/PATCH .../section/service-areas` (`serviceAreasSettingsSchema`) | Service area countries + notes |
-| — | `/staff/settings/ldap` | `SettingsController` | LDAP full field set (ldap_is_active, ldap_username, ldap_password, ldap_base_dn) |
+| — | `/staff/settings/ldap` | `SettingsController` + `GET /api/staff/ldap/search` + `POST /api/staff/ldap/import` | LDAP settings; directory search + customer import (no password until OTP/set-password) |
 | — | `/staff/settings/analytics` | `SettingsController` | Matomo analytics fields (matomo_analytics_active, url, site_id) |
 
 **Round 3 additions (schema + auth + UI parity):**

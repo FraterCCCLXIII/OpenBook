@@ -4,10 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class BookingCatalogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
   /** Public bookable services (non-private). */
   async listPublicServices() {
@@ -59,7 +63,7 @@ export class BookingCatalogService {
       },
     });
 
-    return links.map((l) => ({
+    const mapped = links.map((l) => ({
       id: l.user.id.toString(),
       firstName: l.user.firstName,
       lastName: l.user.lastName,
@@ -69,6 +73,12 @@ export class BookingCatalogService {
         l.user.email ||
         `Provider ${l.user.id}`,
     }));
+
+    const anyProv = await this.settings.getSettingByName('display_any_provider');
+    if (mapped.length > 1 && anyProv === '0') {
+      return [mapped[0]];
+    }
+    return mapped;
   }
 
   /** Ensures provider is linked to the service (ea_services_providers). */

@@ -45,7 +45,25 @@ export function PublicLayout() {
   const companyLink = settings.company_link;
   const companyLogo = settings.company_logo;
   const companyName = settings.company_name;
+  const companyColor = settings.company_color?.trim();
+  const theme = settings.theme ?? 'default';
   const showLanguage = settings.display_language_selector !== 'false';
+  const showLoginButton = settings.display_login_button !== '0';
+
+  useEffect(() => {
+    const lang = settings.default_language?.trim();
+    if (lang && i18n.language !== lang) {
+      void i18n.changeLanguage(lang);
+    }
+  }, [settings.default_language, i18n]);
+
+  useEffect(() => {
+    if (companyColor && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(companyColor)) {
+      document.documentElement.style.setProperty('--ob-brand', companyColor);
+    } else {
+      document.documentElement.style.removeProperty('--ob-brand');
+    }
+  }, [companyColor]);
 
   const isCustomer = user?.kind === 'customer';
 
@@ -76,12 +94,22 @@ export function PublicLayout() {
         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
     ].join(' ');
 
+  const shellClass =
+    theme === 'dark'
+      ? 'flex min-h-screen flex-col bg-slate-900 text-slate-100'
+      : 'flex min-h-screen flex-col bg-slate-50 text-slate-900';
+
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+    <div className={shellClass}>
       {/* Booking top nav — 3-column: [return to site] [logo] [account / language] */}
       <nav
         id="booking-top-nav"
         className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur"
+        style={
+          companyColor && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(companyColor)
+            ? { borderBottomColor: `${companyColor}55` }
+            : undefined
+        }
         aria-label="Booking"
       >
         <div className="flex w-full items-center px-4 py-3">
@@ -121,8 +149,16 @@ export function PublicLayout() {
             </Link>
           </div>
 
-          {/* Right: User dropdown (if customer logged in) or language selector */}
-          <div className="flex w-1/3 justify-end">
+          {/* Right: Login link, user dropdown, or language selector */}
+          <div className="flex w-1/3 justify-end items-center gap-2">
+            {!isCustomer && showLoginButton && (
+              <Link
+                to="/customer/login"
+                className="rounded-xl border border-slate-200 px-3 py-1 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+              >
+                Log in
+              </Link>
+            )}
             {isCustomer ? (
               <div className="relative" ref={userMenuRef}>
                 <button

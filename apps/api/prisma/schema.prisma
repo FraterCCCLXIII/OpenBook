@@ -335,9 +335,10 @@ model GeoNamesPostalCode {
   latitude    Float?
   longitude   Float?
 
-  @@index([postalCode, countryCode])
+  @@unique([countryCode, postalCode])
   @@map("ea_geonames_postal_codes")
 }
+
 
 model AppointmentNote {
   id             BigInt    @id @default(autoincrement())

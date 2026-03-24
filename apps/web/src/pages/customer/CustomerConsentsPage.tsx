@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import DOMPurify from 'dompurify';
 import { CheckCircle, ChevronDown, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Card } from '../../components/ui';
@@ -120,7 +121,9 @@ export function CustomerConsentsPage() {
                   <div className="border-t border-slate-100 px-5 py-4 text-sm leading-relaxed text-slate-700 [&_a]:text-brand [&_a]:underline">
                     <div
                       dangerouslySetInnerHTML={{
-                        __html: legal.data.terms_and_conditions_content ?? '',
+                        __html: DOMPurify.sanitize(
+                          legal.data.terms_and_conditions_content ?? '',
+                        ),
                       }}
                     />
                   </div>
@@ -148,7 +151,9 @@ export function CustomerConsentsPage() {
                   <div className="border-t border-slate-100 px-5 py-4 text-sm leading-relaxed text-slate-700 [&_a]:text-brand [&_a]:underline">
                     <div
                       dangerouslySetInnerHTML={{
-                        __html: legal.data.privacy_policy_content ?? '',
+                        __html: DOMPurify.sanitize(
+                          legal.data.privacy_policy_content ?? '',
+                        ),
                       }}
                     />
                   </div>

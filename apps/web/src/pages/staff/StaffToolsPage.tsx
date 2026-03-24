@@ -1,10 +1,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
-import { apiJson } from '../../lib/api';
+import { useRef, useState } from 'react';
+import { apiForm, apiJson } from '../../lib/api';
 
 export function StaffToolsPage() {
   const [country, setCountry] = useState('US');
   const [q, setQ] = useState('');
+  const [truncate, setTruncate] = useState(false);
+  const [importCountry, setImportCountry] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const postal = useQuery({
     queryKey: ['staff', 'tools', 'postal', country, q],
@@ -25,11 +28,21 @@ export function StaffToolsPage() {
   });
 
   const queueGeo = useMutation({
-    mutationFn: () =>
-      apiJson('/api/staff/system/geonames-import', {
-        method: 'POST',
-        body: JSON.stringify({}),
-      }),
+    mutationFn: async () => {
+      const input = fileRef.current?.files?.[0];
+      if (!input) {
+        throw new Error('Choose a GeoNames postal codes file (.txt, tab-separated).');
+      }
+      const fd = new FormData();
+      fd.append('file', input);
+      if (truncate) fd.append('truncate', 'true');
+      const cc = importCountry.trim().toUpperCase().slice(0, 2);
+      if (cc) fd.append('countryCode', cc);
+      return apiForm<{ ok: boolean; queued: boolean }>(
+        '/api/staff/system/geonames-import',
+        fd,
+      );
+    },
   });
 
   return (
@@ -37,8 +50,9 @@ export function StaffToolsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-zinc-50">Tools</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          GeoNames postal lookup uses <code className="text-zinc-600">ea_geonames_postal_codes</code>. Import
-          data via your DBA or queue a background stub job (Redis + worker).
+          GeoNames postal lookup uses <code className="text-zinc-600">ea_geonames_postal_codes</code>. Upload a
+          GeoNames <code className="text-zinc-600">allCountries.zip</code> postal file (tab-separated) to import via
+          the worker.
         </p>
       </div>
 
@@ -99,23 +113,53 @@ export function StaffToolsPage() {
       </section>
 
       <section className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-        <h2 className="text-sm font-semibold text-zinc-200">GeoNames import job</h2>
+        <h2 className="text-sm font-semibold text-zinc-200">GeoNames import</h2>
         <p className="mt-1 text-xs text-zinc-500">
-          Queues a worker job (audit log only until CSV import is wired). Requires <code className="text-zinc-600">REDIS_URL</code> and{' '}
-          <code className="text-zinc-600">pnpm --filter @openbook/api run worker</code>.
+          Upload a tab-separated postal-code file (GeoNames format). Requires <code className="text-zinc-600">REDIS_URL</code> and{' '}
+          <code className="text-zinc-600">pnpm --filter @openbook/api run worker</code>. Use <strong>Truncate</strong> to
+          wipe the table first, or set <strong>Country</strong> to replace one country without truncating the rest.
         </p>
-        <button
-          type="button"
-          disabled={queueGeo.isPending}
-          onClick={() => queueGeo.mutate()}
-          className="mt-3 rounded border border-zinc-600 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-        >
-          {queueGeo.isPending ? 'Queueing…' : 'Queue GeoNames import stub'}
-        </button>
-        {queueGeo.isSuccess && <p className="mt-2 text-xs text-emerald-500">Queued.</p>}
-        {queueGeo.isError && (
-          <p className="mt-2 text-xs text-red-400">{(queueGeo.error as Error).message}</p>
-        )}
+        <div className="mt-3 flex flex-col gap-3 text-xs text-zinc-400">
+          <label className="block">
+            <span className="text-zinc-500">Postal file</span>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".txt,text/plain"
+              className="mt-1 block w-full max-w-md text-sm text-zinc-300 file:mr-2 file:rounded file:border file:border-zinc-600 file:bg-zinc-800 file:px-2 file:py-1"
+            />
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={truncate}
+              onChange={(e) => setTruncate(e.target.checked)}
+            />
+            Truncate all GeoNames rows before import
+          </label>
+          <label className="block max-w-xs">
+            Country (optional, 2-letter — replace only this country)
+            <input
+              value={importCountry}
+              onChange={(e) => setImportCountry(e.target.value.toUpperCase())}
+              maxLength={2}
+              placeholder="US"
+              className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm text-zinc-100"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={queueGeo.isPending}
+            onClick={() => queueGeo.mutate()}
+            className="w-fit rounded border border-zinc-600 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+          >
+            {queueGeo.isPending ? 'Queueing…' : 'Upload & queue import'}
+          </button>
+          {queueGeo.isSuccess && <p className="text-xs text-emerald-500">Queued for worker.</p>}
+          {queueGeo.isError && (
+            <p className="text-xs text-red-400">{(queueGeo.error as Error).message}</p>
+          )}
+        </div>
       </section>
     </div>
   );

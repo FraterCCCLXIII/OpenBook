@@ -21,3 +21,21 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return res.json() as Promise<T>;
 }
+
+/** Multipart POST (do not set Content-Type; browser sets boundary). */
+export async function apiForm<T>(path: string, formData: FormData): Promise<T> {
+  await ensureCsrfToken();
+  const res = await fetch(path, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      ...csrfHeaders(),
+    },
+    body: formData,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Request failed: ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}

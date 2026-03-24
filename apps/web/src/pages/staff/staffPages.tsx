@@ -29,6 +29,7 @@ type PaymentTransaction = {
   status: string;
   stripePaymentIntentId: string | null;
   stripeCheckoutSessionId: string | null;
+  receiptUrl: string | null;
   createdAt: string | null;
   serviceName: string | null;
   customerName: string | null;
@@ -37,6 +38,7 @@ type PaymentTransaction = {
 export function StaffBillingPage() {
   const qc = useQueryClient();
   const [refundError, setRefundError] = useState<string | null>(null);
+  const [partialCentsById, setPartialCentsById] = useState<Record<number, string>>({});
   const summary = useQuery({
     queryKey: ['staff', 'billing', 'summary'],
     queryFn: () =>
@@ -47,6 +49,7 @@ export function StaffBillingPage() {
           succeededCount: number;
           pendingCount?: number;
           refundedCount?: number;
+          partiallyRefundedCount?: number;
           failedCount?: number;
           totalCount?: number;
         };
@@ -59,8 +62,17 @@ export function StaffBillingPage() {
   });
 
   const refundMut = useMutation({
-    mutationFn: (paymentId: number) =>
-      apiJson(`/api/staff/billing/refund/${paymentId}`, { method: 'POST' }),
+    mutationFn: (args: { paymentId: number; amountCents?: number }) =>
+      apiJson(
+        `/api/staff/billing/refund/${args.paymentId}`,
+        {
+          method: 'POST',
+          body:
+            args.amountCents != null
+              ? JSON.stringify({ amountCents: args.amountCents })
+              : '{}',
+        },
+      ),
     onSuccess: () => {
       setRefundError(null);
       void qc.invalidateQueries({ queryKey: ['staff', 'billing'] });
@@ -88,13 +100,16 @@ export function StaffBillingPage() {
             </p>
           </div>
           <div className="rounded border border-zinc-800 p-3">
-            <p className="text-xs text-zinc-500">Payments (succeeded / pending / refunded)</p>
+            <p className="text-xs text-zinc-500">
+              Payments (ok / pending / partial / refunded)
+            </p>
             <p className="text-lg font-bold text-zinc-100">
               {summary.data.payments.succeededCount}
               {summary.data.payments.pendingCount != null && (
                 <span className="text-zinc-500">
                   {' '}
                   / {summary.data.payments.pendingCount} /{' '}
+                  {summary.data.payments.partiallyRefundedCount ?? 0} /{' '}
                   {summary.data.payments.refundedCount ?? 0}
                 </span>
               )}
@@ -129,8 +144,9 @@ export function StaffBillingPage() {
                   <th className="px-3 py-2">Service</th>
                   <th className="px-3 py-2">Amount</th>
                   <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Receipt</th>
                   <th className="px-3 py-2">Stripe</th>
-                  <th className="px-3 py-2" />
+                  <th className="px-3 py-2">Refund</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,37 +165,83 @@ export function StaffBillingPage() {
                         className={
                           t.status === 'succeeded'
                             ? 'text-emerald-400'
-                            : t.status === 'refunded'
-                              ? 'text-amber-400'
-                              : 'text-zinc-500'
+                            : t.status === 'partially_refunded'
+                              ? 'text-amber-300'
+                              : t.status === 'refunded'
+                                ? 'text-amber-400'
+                                : 'text-zinc-500'
                         }
                       >
                         {t.status}
                       </span>
                     </td>
+                    <td className="px-3 py-2">
+                      {t.receiptUrl ? (
+                        <a
+                          href={t.receiptUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-emerald-400 underline"
+                        >
+                          Receipt
+                        </a>
+                      ) : (
+                        <span className="text-xs text-zinc-600">—</span>
+                      )}
+                    </td>
                     <td className="max-w-[140px] truncate px-3 py-2 font-mono text-[10px] text-zinc-500">
                       {t.stripePaymentIntentId ?? t.stripeCheckoutSessionId ?? '—'}
                     </td>
                     <td className="px-3 py-2">
-                      {t.status === 'succeeded' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (
-                              !window.confirm(
-                                'Issue a full refund in Stripe for this payment?',
-                              )
-                            ) {
-                              return;
-                            }
-                            setRefundError(null);
-                            refundMut.mutate(t.id);
-                          }}
-                          disabled={refundMut.isPending}
-                          className="text-xs text-red-400 hover:underline disabled:opacity-50"
-                        >
-                          Refund
-                        </button>
+                      {(t.status === 'succeeded' || t.status === 'partially_refunded') && (
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] text-zinc-500">
+                            Partial (cents, optional)
+                            <input
+                              type="number"
+                              min={1}
+                              placeholder="full"
+                              value={partialCentsById[t.id] ?? ''}
+                              onChange={(e) =>
+                                setPartialCentsById((prev) => ({
+                                  ...prev,
+                                  [t.id]: e.target.value,
+                                }))
+                              }
+                              className="ml-1 w-20 rounded border border-zinc-700 bg-zinc-950 px-1 py-0.5 font-mono text-[10px] text-zinc-200"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const raw = partialCentsById[t.id]?.trim();
+                              const amountCents =
+                                !raw ? undefined : Number.parseInt(raw, 10);
+                              if (
+                                raw &&
+                                (!Number.isFinite(amountCents) ||
+                                  (amountCents as number) <= 0)
+                              ) {
+                                setRefundError('Enter a positive amount in cents or leave empty for full refund.');
+                                return;
+                              }
+                              const msg =
+                                amountCents != null
+                                  ? `Issue a partial refund of ${amountCents} cents in Stripe?`
+                                  : 'Issue a full refund in Stripe for this payment?';
+                              if (!window.confirm(msg)) return;
+                              setRefundError(null);
+                              refundMut.mutate({
+                                paymentId: t.id,
+                                amountCents,
+                              });
+                            }}
+                            disabled={refundMut.isPending}
+                            className="text-left text-xs text-red-400 hover:underline disabled:opacity-50"
+                          >
+                            Refund
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

@@ -6,6 +6,7 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { BookingCatalogService } from './booking-catalog.service';
 import { BookingRegistrationService } from './booking-registration.service';
@@ -25,10 +26,27 @@ type AvailableHoursBody = {
 @Controller('booking')
 export class BookingController {
   constructor(
+    private readonly prisma: PrismaService,
     private readonly availability: AvailabilityService,
     private readonly catalog: BookingCatalogService,
     private readonly registration: BookingRegistrationService,
   ) {}
+
+  /** Active custom fields shown on the booking wizard. */
+  @Get('custom-fields')
+  listCustomFields() {
+    return this.prisma.customField.findMany({
+      where: { isActive: 1, isDisplayed: 1 },
+      orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        fieldType: true,
+        defaultValue: true,
+        isRequired: true,
+      },
+    });
+  }
 
   /** Anonymous: list bookable services. */
   @Get('services')
@@ -90,6 +108,11 @@ export class BookingController {
       email?: string;
       phone?: string;
       notes?: string;
+      address?: string;
+      city?: string;
+      zip_code?: string;
+      captcha_token?: string;
+      custom_fields?: Record<string, string>;
     },
   ) {
     const serviceId = BigInt(body.service_id ?? '0');
@@ -112,6 +135,11 @@ export class BookingController {
       email: body.email ?? '',
       phone: body.phone,
       notes: body.notes,
+      address: body.address,
+      city: body.city,
+      zip_code: body.zip_code,
+      captcha_token: body.captcha_token,
+      custom_fields: body.custom_fields,
     });
   }
 }

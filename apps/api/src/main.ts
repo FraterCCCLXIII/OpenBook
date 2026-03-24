@@ -4,11 +4,13 @@ import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { csrfMiddleware } from './csrf/csrf.middleware';
+import { PrismaConnectionExceptionFilter } from './prisma/prisma-connection.exception-filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+  app.useGlobalFilters(new PrismaConnectionExceptionFilter());
 
   app.use(helmet());
   app.use(cookieParser());

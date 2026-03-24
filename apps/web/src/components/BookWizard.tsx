@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckSquare, ChevronRight } from 'lucide-react';
@@ -24,6 +25,27 @@ type Confirmation = {
   id: string;
   startDatetime: string | null;
 };
+
+type BookingCustomField = {
+  id: number;
+  name: string;
+  fieldType: string;
+  defaultValue: string | null;
+  isRequired: number;
+};
+
+async function fetchPublicSettings(): Promise<Record<string, string>> {
+  const res = await fetch('/api/settings/public');
+  if (!res.ok) return {};
+  return res.json() as Promise<Record<string, string>>;
+}
+
+/** When unset, show field (legacy default). */
+function fieldVisible(key: string, settings: Record<string, string>): boolean {
+  const v = settings[key];
+  if (v === undefined || v === '') return true;
+  return v === '1';
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -117,7 +139,7 @@ export function BookWizard() {
   const [providerId, setProviderId] = useState('');
 
   // ── Step 3 ──────────────────────────────────────────────────────────────────
-  const [selYear, setSelYear] = useState(todayDate.getFullYear());
+  const [selYear] = useState(todayDate.getFullYear());
   const [selMonth, setSelMonth] = useState(todayDate.getMonth());
   const [selDay, setSelDay] = useState(todayDate.getDate());
   const [selSlot, setSelSlot] = useState('');
@@ -136,6 +158,13 @@ export function BookWizard() {
   const [city, setCity] = useState('');
   const [zip, setZip] = useState('');
   const [notes, setNotes] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
+  /** Remount Turnstile each time the user enters step 4 from another step. */
+  const [captchaMountKey, setCaptchaMountKey] = useState(0);
+  const prevStepRef = useRef<1 | 2 | 3 | 4 | 5>(1);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<number, string>>(
+    {},
+  );
 
   // ── Step 5 ──────────────────────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false);
@@ -149,6 +178,21 @@ export function BookWizard() {
       const r = await fetch('/api/booking/services');
       if (!r.ok) throw new Error('Failed to load services');
       return r.json() as Promise<PublicService[]>;
+    },
+  });
+
+  const settingsQuery = useQuery({
+    queryKey: ['settings', 'public'],
+    queryFn: fetchPublicSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const customFieldsQuery = useQuery({
+    queryKey: ['booking', 'custom-fields'],
+    queryFn: async (): Promise<BookingCustomField[]> => {
+      const r = await fetch('/api/booking/custom-fields');
+      if (!r.ok) return [];
+      return r.json() as Promise<BookingCustomField[]>;
     },
   });
 
@@ -169,6 +213,28 @@ export function BookWizard() {
   useEffect(() => {
     setProviderId('');
   }, [serviceId]);
+
+  useEffect(() => {
+    if (step !== 4) setCaptchaToken('');
+    if (step === 4 && prevStepRef.current !== 4) {
+      setCaptchaMountKey((k) => k + 1);
+    }
+    prevStepRef.current = step;
+  }, [step]);
+
+  const providers = providersQuery.data ?? [];
+  useEffect(() => {
+    if (providers.length === 1 && !providerId) {
+      setProviderId(providers[0].id);
+    }
+  }, [providers, providerId]);
+
+  const onCaptchaSuccess = useCallback((token: string) => {
+    setCaptchaToken(token);
+  }, []);
+  const onCaptchaExpire = useCallback(() => {
+    setCaptchaToken('');
+  }, []);
 
   // Auto-scroll today/selected date into view when the dates strip renders
   useEffect(() => {
@@ -228,6 +294,11 @@ export function BookWizard() {
     try {
       await ensureCsrfToken();
       const dateStr = `${selYear}-${pad2(selMonth + 1)}-${pad2(selDay)}`;
+      const customFieldsPayload: Record<string, string> = {};
+      for (const [idStr, val] of Object.entries(customFieldValues)) {
+        if (val?.trim()) customFieldsPayload[idStr] = val.trim();
+      }
+
       const res = await fetch('/api/booking/appointments', {
         method: 'POST',
         credentials: 'include',
@@ -245,6 +316,11 @@ export function BookWizard() {
           city: city.trim() || undefined,
           zip_code: zip.trim() || undefined,
           notes: notes.trim() || undefined,
+          captcha_token: captchaToken.trim() || undefined,
+          custom_fields:
+            Object.keys(customFieldsPayload).length > 0
+              ? customFieldsPayload
+              : undefined,
         }),
       });
       const data = (await res.json().catch(() => null)) as unknown;
@@ -267,9 +343,35 @@ export function BookWizard() {
   // ── Derived ──────────────────────────────────────────────────────────────────
 
   const services = servicesQuery.data ?? [];
-  const providers = providersQuery.data ?? [];
+  const settings = settingsQuery.data ?? {};
+  const customFields = customFieldsQuery.data ?? [];
   const selectedService = services.find((s) => s.id === serviceId);
   const selectedProvider = providers.find((p) => p.id === providerId);
+
+  const reqFirst = settings.require_first_name !== '0';
+  const reqLast = settings.require_last_name !== '0';
+  const reqPhone = settings.require_phone_number === '1';
+  const reqNotes = settings.require_notes === '1';
+  const reqAddr = settings.require_address === '1';
+  const customRequiredOk = customFields.every(
+    (f) => !f.isRequired || (customFieldValues[f.id] ?? '').trim(),
+  );
+  const turnstileSiteKey = (settings.turnstile_site_key ?? '').trim();
+  const captchaRequired = settings.require_captcha === '1';
+  const captchaConfigured = !captchaRequired || Boolean(turnstileSiteKey);
+  const captchaSatisfied =
+    !captchaRequired ||
+    (Boolean(turnstileSiteKey) && Boolean(captchaToken.trim()));
+  const step4CanProceed =
+    Boolean(email.trim()) &&
+    (!reqFirst || Boolean(firstName.trim())) &&
+    (!reqLast || Boolean(lastName.trim())) &&
+    (!reqPhone || Boolean(phone.trim())) &&
+    (!reqNotes || Boolean(notes.trim())) &&
+    (!reqAddr || Boolean(address.trim())) &&
+    customRequiredOk &&
+    captchaConfigured &&
+    captchaSatisfied;
 
   const goToStep = (s: 1 | 2 | 3 | 4 | 5) => {
     if (s < step && confirmed === null) setStep(s);
@@ -626,30 +728,34 @@ export function BookWizard() {
             </h2>
             <div className="frame-content mt-6">
               <div className="booking-frame-content space-y-4">
-                <Field label="First Name" htmlFor="book-first-name" required>
-                  <input
-                    id="book-first-name"
-                    type="text"
-                    className="booking-input"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    maxLength={100}
-                    required
-                    autoComplete="given-name"
-                  />
-                </Field>
-                <Field label="Last Name" htmlFor="book-last-name" required>
-                  <input
-                    id="book-last-name"
-                    type="text"
-                    className="booking-input"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    maxLength={120}
-                    required
-                    autoComplete="family-name"
-                  />
-                </Field>
+                {fieldVisible('display_first_name', settings) && (
+                  <Field label="First Name" htmlFor="book-first-name" required={reqFirst}>
+                    <input
+                      id="book-first-name"
+                      type="text"
+                      className="booking-input"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      maxLength={100}
+                      required={reqFirst}
+                      autoComplete="given-name"
+                    />
+                  </Field>
+                )}
+                {fieldVisible('display_last_name', settings) && (
+                  <Field label="Last Name" htmlFor="book-last-name" required={reqLast}>
+                    <input
+                      id="book-last-name"
+                      type="text"
+                      className="booking-input"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      maxLength={120}
+                      required={reqLast}
+                      autoComplete="family-name"
+                    />
+                  </Field>
+                )}
                 <Field label="Email" htmlFor="book-email" required>
                   <input
                     id="book-email"
@@ -664,60 +770,150 @@ export function BookWizard() {
                     autoComplete="email"
                   />
                 </Field>
-                <Field label="Phone Number" htmlFor="book-phone">
-                  <input
-                    id="book-phone"
-                    type="tel"
-                    className="booking-input"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    maxLength={60}
-                    autoComplete="tel"
-                  />
-                </Field>
-                <Field label="Address" htmlFor="book-address">
-                  <input
-                    id="book-address"
-                    type="text"
-                    className="booking-input"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    maxLength={120}
-                    autoComplete="street-address"
-                  />
-                </Field>
-                <Field label="City" htmlFor="book-city">
-                  <input
-                    id="book-city"
-                    type="text"
-                    className="booking-input"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    maxLength={120}
-                    autoComplete="address-level2"
-                  />
-                </Field>
-                <Field label="Zip Code" htmlFor="book-zip">
-                  <input
-                    id="book-zip"
-                    type="text"
-                    className="booking-input"
-                    value={zip}
-                    onChange={(e) => setZip(e.target.value)}
-                    maxLength={20}
-                    autoComplete="postal-code"
-                  />
-                </Field>
-                <Field label="Notes" htmlFor="book-notes">
-                  <textarea
-                    id="book-notes"
-                    className="booking-input"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    maxLength={500}
-                    rows={2}
-                  />
-                </Field>
+                {fieldVisible('display_phone_number', settings) && (
+                  <Field label="Phone Number" htmlFor="book-phone" required={reqPhone}>
+                    <input
+                      id="book-phone"
+                      type="tel"
+                      className="booking-input"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      maxLength={60}
+                      required={reqPhone}
+                      autoComplete="tel"
+                    />
+                  </Field>
+                )}
+                {fieldVisible('display_address', settings) && (
+                  <Field label="Address" htmlFor="book-address" required={reqAddr}>
+                    <input
+                      id="book-address"
+                      type="text"
+                      className="booking-input"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      maxLength={120}
+                      required={reqAddr}
+                      autoComplete="street-address"
+                    />
+                  </Field>
+                )}
+                {fieldVisible('display_city', settings) && (
+                  <Field label="City" htmlFor="book-city">
+                    <input
+                      id="book-city"
+                      type="text"
+                      className="booking-input"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      maxLength={120}
+                      autoComplete="address-level2"
+                    />
+                  </Field>
+                )}
+                {fieldVisible('display_zip_code', settings) && (
+                  <Field label="Zip Code" htmlFor="book-zip">
+                    <input
+                      id="book-zip"
+                      type="text"
+                      className="booking-input"
+                      value={zip}
+                      onChange={(e) => setZip(e.target.value)}
+                      maxLength={20}
+                      autoComplete="postal-code"
+                    />
+                  </Field>
+                )}
+                {fieldVisible('display_notes', settings) && (
+                  <Field label="Notes" htmlFor="book-notes" required={reqNotes}>
+                    <textarea
+                      id="book-notes"
+                      className="booking-input"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      maxLength={500}
+                      rows={2}
+                      required={reqNotes}
+                    />
+                  </Field>
+                )}
+                {customFields.map((cf) => {
+                  const multiline =
+                    cf.fieldType === 'textarea' || cf.fieldType === 'text';
+                  return (
+                    <Field
+                      key={cf.id}
+                      label={cf.name}
+                      htmlFor={`book-cf-${cf.id}`}
+                      required={cf.isRequired === 1}
+                    >
+                      {multiline ? (
+                        <textarea
+                          id={`book-cf-${cf.id}`}
+                          className="booking-input"
+                          value={customFieldValues[cf.id] ?? ''}
+                          onChange={(e) =>
+                            setCustomFieldValues((prev) => ({
+                              ...prev,
+                              [cf.id]: e.target.value,
+                            }))
+                          }
+                          rows={cf.fieldType === 'textarea' ? 4 : 2}
+                          required={cf.isRequired === 1}
+                        />
+                      ) : (
+                        <input
+                          id={`book-cf-${cf.id}`}
+                          type="text"
+                          className="booking-input"
+                          value={customFieldValues[cf.id] ?? ''}
+                          onChange={(e) =>
+                            setCustomFieldValues((prev) => ({
+                              ...prev,
+                              [cf.id]: e.target.value,
+                            }))
+                          }
+                          required={cf.isRequired === 1}
+                        />
+                      )}
+                    </Field>
+                  );
+                })}
+                {settings.require_captcha === '1' && (
+                  <div>
+                    <p className="form-label">
+                      Verification
+                      <span className="ml-0.5 text-red-500" aria-hidden="true">
+                        *
+                      </span>
+                    </p>
+                    {!turnstileSiteKey ? (
+                      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        CAPTCHA is required, but this site is missing{' '}
+                        <code className="text-amber-950">OPENBOOK_TURNSTILE_SITE_KEY</code>{' '}
+                        (public site key) and{' '}
+                        <code className="text-amber-950">OPENBOOK_TURNSTILE_SECRET_KEY</code>{' '}
+                        on the API. Add both environment variables and restart the server.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="mt-1 flex justify-start">
+                          <Turnstile
+                            key={captchaMountKey}
+                            siteKey={turnstileSiteKey}
+                            onSuccess={onCaptchaSuccess}
+                            onExpire={onCaptchaExpire}
+                            options={{ theme: 'light', size: 'normal' }}
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Protected by Cloudflare Turnstile. The API validates responses with{' '}
+                          <code className="text-slate-600">OPENBOOK_TURNSTILE_SECRET_KEY</code>.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -726,14 +922,10 @@ export function BookWizard() {
               <button
                 type="button"
                 id="button-next-4"
-                className={`button-next booking-button${!firstName.trim() || !lastName.trim() || !email.trim() ? ' disabled' : ''}`}
+                className={`button-next booking-button${!step4CanProceed ? ' disabled' : ''}`}
                 data-step_index="4"
-                disabled={
-                  !firstName.trim() || !lastName.trim() || !email.trim()
-                }
-                aria-disabled={
-                  !firstName.trim() || !lastName.trim() || !email.trim()
-                }
+                disabled={!step4CanProceed}
+                aria-disabled={!step4CanProceed}
                 onClick={() => setStep(5)}
               >
                 Next{' '}
