@@ -1,28 +1,43 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  BarChart3,
+  Building2,
+  Calendar,
+  CreditCard,
+  KeyRound,
+  LogIn,
+  Mail,
+  MapPin,
+  Scale,
+  Settings,
+  Shield,
+  UserCircle,
+} from 'lucide-react';
 import { apiJson } from '../../../lib/api';
 
 type SectionValues = Record<string, string>;
 
-const NAV = [
-  { path: 'general', label: 'General' },
-  { path: 'business', label: 'Business' },
-  { path: 'booking', label: 'Booking' },
-  { path: 'api', label: 'API' },
-  { path: 'stripe', label: 'Stripe' },
-  { path: 'ldap', label: 'LDAP' },
-  { path: 'email-notifications', label: 'Email / SMTP' },
-  { path: 'legal', label: 'Legal' },
-  { path: 'analytics', label: 'Analytics' },
-  { path: 'customer-login', label: 'Customer login' },
-  { path: 'customer-profiles', label: 'Customer profiles' },
-  { path: 'service-areas', label: 'Service areas' },
-] as const;
+const NAV: { path: string; label: string; icon: LucideIcon }[] = [
+  { path: 'general', label: 'General', icon: Settings },
+  { path: 'business', label: 'Business', icon: Building2 },
+  { path: 'booking', label: 'Booking', icon: Calendar },
+  { path: 'api', label: 'API', icon: KeyRound },
+  { path: 'stripe', label: 'Stripe', icon: CreditCard },
+  { path: 'ldap', label: 'LDAP', icon: Shield },
+  { path: 'email-notifications', label: 'Email / SMTP', icon: Mail },
+  { path: 'legal', label: 'Legal', icon: Scale },
+  { path: 'analytics', label: 'Analytics', icon: BarChart3 },
+  { path: 'customer-login', label: 'Customer login', icon: LogIn },
+  { path: 'customer-profiles', label: 'Customer profiles', icon: UserCircle },
+  { path: 'service-areas', label: 'Service areas', icon: MapPin },
+];
 
 const settingsNavLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
-    'block rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+    'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
     isActive
       ? 'bg-zinc-800 text-zinc-50'
       : 'text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100',
@@ -40,20 +55,24 @@ export function StaffSettingsLayout() {
       </div>
       <div className="flex flex-col gap-8 md:flex-row md:items-start">
         <nav
-          className="w-full shrink-0 border-b border-zinc-800 pb-4 md:w-56 md:border-b-0 md:border-r md:pb-0 md:pr-6"
+          className="w-full shrink-0 border-b border-zinc-800 pb-4 md:w-56 md:border-b-0 md:pb-0"
           aria-label="Settings sections"
         >
           <ul className="flex flex-col gap-0.5">
-            {NAV.map((n) => (
-              <li key={n.path}>
-                <NavLink
-                  to={`/staff/settings/${n.path}`}
-                  className={settingsNavLinkClass}
-                >
-                  {n.label}
-                </NavLink>
-              </li>
-            ))}
+            {NAV.map((n) => {
+              const Icon = n.icon;
+              return (
+                <li key={n.path}>
+                  <NavLink
+                    to={`/staff/settings/${n.path}`}
+                    className={settingsNavLinkClass}
+                  >
+                    <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+                    <span className="min-w-0">{n.label}</span>
+                  </NavLink>
+                </li>
+              );
+            })}
           </ul>
         </nav>
         <div className="min-w-0 flex-1">
