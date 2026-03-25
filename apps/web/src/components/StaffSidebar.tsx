@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import {
-  BookOpen,
   Briefcase,
   Calendar,
   ChevronDown,
@@ -15,10 +14,11 @@ import {
   PanelLeft,
   ScrollText,
   Settings,
-  ShieldCheck,
-  Stethoscope,
   Tags,
   User,
+  UserCog,
+  UserPen,
+  UserStar,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { canViewStaff } from '../auth/staffPermissions';
@@ -336,19 +336,19 @@ export function StaffSidebar() {
               to="/staff/providers"
               collapsed={collapsed}
               label={t('providers')}
-              icon={Stethoscope}
+              icon={UserStar}
             />
             <SidebarNavLink
               to="/staff/secretaries"
               collapsed={collapsed}
               label={t('secretaries')}
-              icon={BookOpen}
+              icon={UserPen}
             />
             <SidebarNavLink
               to="/staff/admins"
               collapsed={collapsed}
               label={t('admins')}
-              icon={ShieldCheck}
+              icon={UserCog}
             />
           </div>
         )}
