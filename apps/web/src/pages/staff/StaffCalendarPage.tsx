@@ -14,12 +14,14 @@ import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
+  CalendarDays,
   Check,
   ChevronDown,
   Filter,
   MoreVertical,
   Plus,
   RefreshCw,
+  Table2,
 } from 'lucide-react';
 import { apiJson } from '../../lib/api';
 
@@ -335,7 +337,162 @@ function ColorPicker({
   );
 }
 
-// ─── Main Calendar Page ───────────────────────────────────────────────────────
+// ─── Provider Columns View ────────────────────────────────────────────────────
+
+function statusDot(status: string | null) {
+  if (status === 'Confirmed') return 'bg-emerald-500';
+  if (status === 'Cancelled') return 'bg-red-500';
+  if (status === 'Rescheduled') return 'bg-amber-400';
+  if (status === 'Booked') return 'bg-sky-400';
+  return 'bg-zinc-500';
+}
+
+function ProviderColumnsView({
+  items,
+  providers,
+  onEdit,
+  range,
+}: {
+  items: CalItem[];
+  providers: PickerRow[];
+  onEdit: (item: CalItem) => void;
+  range: { from: Date; to: Date };
+}) {
+  // Group appointments by provider id
+  const byProvider = useMemo(() => {
+    const map = new Map<string, CalItem[]>();
+    for (const item of items) {
+      const key = item.idUsersProvider ?? '__unassigned__';
+      const arr = map.get(key) ?? [];
+      arr.push(item);
+      map.set(key, arr);
+    }
+    // Sort each provider's list chronologically
+    for (const arr of map.values()) {
+      arr.sort((a, b) => (a.startDatetime ?? '').localeCompare(b.startDatetime ?? ''));
+    }
+    return map;
+  }, [items]);
+
+  // Include providers that have appointments even if not in the providers list
+  const columns = useMemo(() => {
+    const withAppts = new Set(
+      items.map((i) => i.idUsersProvider).filter(Boolean) as string[],
+    );
+    const known = new Set(providers.map((p) => p.id));
+    const extra: PickerRow[] = [];
+    for (const id of withAppts) {
+      if (!known.has(id)) {
+        const label = items.find((i) => i.idUsersProvider === id)?.providerName ?? `Provider ${id}`;
+        extra.push({ id, label });
+      }
+    }
+    return [...providers, ...extra];
+  }, [providers, items]);
+
+  const fmt = (iso: string | null) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const rangeLabel = `${range.from.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${new Date(range.to.getTime() - 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+      {/* Range label */}
+      <p className="shrink-0 text-xs text-zinc-500">{rangeLabel}</p>
+
+      {/* Scrollable columns container */}
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="flex h-full gap-3" style={{ minWidth: `${columns.length * 260}px` }}>
+          {columns.map((provider) => {
+            const appts = byProvider.get(provider.id) ?? [];
+
+            // Group by calendar day
+            const days = new Map<string, CalItem[]>();
+            for (const a of appts) {
+              const dayKey = a.startDatetime
+                ? new Date(a.startDatetime).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+                : 'Unscheduled';
+              const arr = days.get(dayKey) ?? [];
+              arr.push(a);
+              days.set(dayKey, arr);
+            }
+
+            return (
+              <div
+                key={provider.id}
+                className="flex w-60 shrink-0 flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/60"
+              >
+                {/* Column header */}
+                <div className="shrink-0 border-b border-zinc-800 px-3 py-2.5">
+                  <h3 className="text-sm font-semibold text-zinc-100">{provider.label}</h3>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {appts.length} appointment{appts.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+
+                {/* Appointment list */}
+                <div className="flex-1 overflow-y-auto p-2 space-y-3">
+                  {appts.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-zinc-600">No appointments</p>
+                  ) : (
+                    Array.from(days.entries()).map(([dayLabel, dayAppts]) => (
+                      <div key={dayLabel}>
+                        <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+                          {dayLabel}
+                        </p>
+                        <div className="space-y-1.5">
+                          {dayAppts.map((appt) => (
+                            <button
+                              key={appt.id}
+                              type="button"
+                              onClick={() => onEdit(appt)}
+                              className="w-full rounded-md border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-left transition-colors hover:border-zinc-600 hover:bg-zinc-800/60"
+                              style={{ borderLeftColor: appt.color ?? '#7cbae8', borderLeftWidth: 3 }}
+                            >
+                              {/* Time */}
+                              <p className="text-[11px] font-medium text-zinc-400">
+                                {fmt(appt.startDatetime)}
+                                {appt.endDatetime && ` – ${fmt(appt.endDatetime)}`}
+                              </p>
+                              {/* Service */}
+                              <p className="mt-0.5 truncate text-sm font-semibold text-zinc-100">
+                                {appt.serviceName ?? 'Appointment'}
+                              </p>
+                              {/* Customer */}
+                              {appt.customerName && (
+                                <p className="truncate text-xs text-zinc-400">{appt.customerName}</p>
+                              )}
+                              {/* Status */}
+                              {appt.status && (
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                  <span className={`h-1.5 w-1.5 rounded-full ${statusDot(appt.status)}`} />
+                                  <span className="text-[10px] text-zinc-500">{appt.status}</span>
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {columns.length === 0 && (
+            <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
+              No providers found.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function StaffCalendarPage() {
   const { t } = useTranslation();
@@ -354,6 +511,7 @@ export function StaffCalendarPage() {
   const [modal, setModal] = useState<ModalState>(null);
   const [selectedProviders, setSelectedProviders] = useState<Set<string>>(new Set());
   const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
 
   const rangeKey = [range.from.toISOString(), range.to.toISOString()];
 
@@ -616,6 +774,40 @@ export function StaffCalendarPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* View toggle */}
+          <div className="flex overflow-hidden rounded-md border border-zinc-700">
+            <button
+              type="button"
+              onClick={() => setViewMode('calendar')}
+              aria-pressed={viewMode === 'calendar'}
+              aria-label="Calendar view"
+              title="Calendar view"
+              className={[
+                'flex h-8 w-8 items-center justify-center transition-colors',
+                viewMode === 'calendar'
+                  ? 'bg-zinc-700 text-zinc-100'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200',
+              ].join(' ')}
+            >
+              <CalendarDays className="h-4 w-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              aria-pressed={viewMode === 'table'}
+              aria-label="Table view"
+              title="Table view"
+              className={[
+                'flex h-8 w-8 items-center justify-center border-l border-zinc-700 transition-colors',
+                viewMode === 'table'
+                  ? 'bg-zinc-700 text-zinc-100'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200',
+              ].join(' ')}
+            >
+              <Table2 className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+
           {/* Reload */}
           <button
             type="button"
@@ -643,36 +835,45 @@ export function StaffCalendarPage() {
         <p className="flex-shrink-0 text-sm text-red-400">{(q.error as Error).message}</p>
       )}
 
-      {/* FullCalendar — fills remaining viewport height */}
-      <div className="staff-calendar min-h-0 flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 p-2">
-        <FullCalendar
-          ref={calRef}
-          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
-          headerToolbar={{
-            left: 'prev,today,next',
-            center: 'title',
-            right: 'timeGridDay,timeGridWeek,dayGridMonth',
-          }}
-          buttonText={{
-            today: 'Today',
-            day: 'Day',
-            week: 'Week',
-            month: 'Month',
-          }}
-          selectable
-          select={onSelect}
-          eventClick={onEventClick}
-          events={events}
-          height="100%"
-          datesSet={onDatesSet}
-          editable
-          eventDrop={onEventDrop}
-          eventResize={onEventResize}
-          nowIndicator
-          scrollTime="08:00:00"
+      {/* Calendar / Table view */}
+      {viewMode === 'calendar' ? (
+        <div className="staff-calendar min-h-0 flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 p-2">
+          <FullCalendar
+            ref={calRef}
+            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+            headerToolbar={{
+              left: 'prev,today,next',
+              center: 'title',
+              right: 'timeGridDay,timeGridWeek,dayGridMonth',
+            }}
+            buttonText={{
+              today: 'Today',
+              day: 'Day',
+              week: 'Week',
+              month: 'Month',
+            }}
+            selectable
+            select={onSelect}
+            eventClick={onEventClick}
+            events={events}
+            height="100%"
+            datesSet={onDatesSet}
+            editable
+            eventDrop={onEventDrop}
+            eventResize={onEventResize}
+            nowIndicator
+            scrollTime="08:00:00"
+          />
+        </div>
+      ) : (
+        <ProviderColumnsView
+          items={filteredAppointments}
+          providers={providerOptions}
+          onEdit={(item) => setModal({ mode: 'edit', item })}
+          range={range}
         />
-      </div>
+      )}
 
       {/* Appointment modals */}
       {modal?.mode === 'create' && (

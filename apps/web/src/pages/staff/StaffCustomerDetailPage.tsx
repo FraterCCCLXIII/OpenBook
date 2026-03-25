@@ -840,14 +840,6 @@ export function StaffCustomerDetailPage() {
   const name =
     [customer.firstName, customer.lastName].filter(Boolean).join(' ') || 'Customer';
   const unreadAlerts = customer.alerts.filter((a) => a.isRead === 0).length;
-  const latestAlert = customer.alerts.length
-    ? [...customer.alerts].sort((a, b) => {
-      const aTime = a.createDatetime ? new Date(a.createDatetime).getTime() : 0;
-      const bTime = b.createDatetime ? new Date(b.createDatetime).getTime() : 0;
-      return bTime - aTime;
-    })[0]
-    : null;
-
   return (
     <div className="space-y-5">
       {/* Summary header */}
@@ -880,33 +872,29 @@ export function StaffCustomerDetailPage() {
             </span>
           )}
         </div>
-        {latestAlert?.message && (
-          <div
-            className={[
-              'mt-4 rounded-lg border px-4 py-3 text-sm',
-              latestAlert.color === 'red'
-                ? 'border-red-900/40 bg-red-950/25 text-red-100'
-                : 'border-amber-900/40 bg-amber-950/30 text-amber-100',
-            ].join(' ')}
-          >
-            <div className="flex items-start gap-2">
-              <AlertTriangle
+        {customer.alerts.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {customer.alerts.map((alert) => (
+              <div
+                key={alert.id}
                 className={[
-                  'mt-0.5 h-4 w-4 shrink-0',
-                  latestAlert.color === 'red' ? 'text-red-300' : 'text-amber-300',
+                  'rounded-lg border px-4 py-3 text-sm',
+                  alert.color === 'red'
+                    ? 'border-red-900/40 bg-red-950/25 text-red-100'
+                    : 'border-amber-900/40 bg-amber-950/30 text-amber-100',
                 ].join(' ')}
-              />
-              <div className="flex-1">
-                <div className="whitespace-pre-wrap break-words">{latestAlert.message}</div>
-                {(latestAlert.createDatetime || latestAlert.authorName) && (
-                  <div className="mt-1 text-xs text-current/70">
-                    {[latestAlert.createDatetime ? fmt(latestAlert.createDatetime) : null, latestAlert.authorName]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </div>
-                )}
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle
+                    className={[
+                      'mt-0.5 h-4 w-4 shrink-0',
+                      alert.color === 'red' ? 'text-red-300' : 'text-amber-300',
+                    ].join(' ')}
+                  />
+                  <div className="whitespace-pre-wrap break-words">{alert.message}</div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         )}
       </div>
