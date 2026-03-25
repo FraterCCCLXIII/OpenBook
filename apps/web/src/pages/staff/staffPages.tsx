@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StaffWorkingPlanEditor } from '../../components/staff/StaffWorkingPlanEditor';
 import { StaffMasterDetailLayout } from '../../components/staff/StaffMasterDetailLayout';
@@ -405,6 +405,11 @@ function FormActions({
 
 // ─── Services ────────────────────────────────────────────────────────────────
 
+const SERVICE_COLORS = [
+  '#7cbae8', '#acbefb', '#82e4ec', '#7cebc1', '#abe9a4',
+  '#ebe07c', '#f3bc7d', '#f3aea6', '#eb8687', '#dfaffe', '#e3e3e3',
+];
+
 type ServiceRow = {
   id: string;
   name: string | null;
@@ -412,8 +417,14 @@ type ServiceRow = {
   price: string | null;
   currency: string | null;
   description: string | null;
+  color: string | null;
+  location: string | null;
+  downPaymentType: string | null;
+  downPaymentValue: string | null;
+  serviceAreaOnly: number | null;
   categoryId: string | null;
   categoryName: string | null;
+  availabilitiesType: string | null;
   attendantsNumber: number | null;
   isPrivate: number | null;
 };
@@ -430,12 +441,53 @@ function filterServices(items: ServiceRow[], q: string): ServiceRow[] {
   });
 }
 
+function ServiceColorPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (color: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {SERVICE_COLORS.map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={() => onChange(c)}
+          className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
+          style={{
+            backgroundColor: c,
+            borderColor: value === c ? 'white' : 'transparent',
+          }}
+          aria-label={c}
+          aria-pressed={value === c}
+        >
+          {value === c && (
+            <svg viewBox="0 0 14 14" className="mx-auto h-3 w-3 text-zinc-900" fill="none" stroke="currentColor" strokeWidth={2.5}>
+              <polyline points="2,7 6,11 12,3" />
+            </svg>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 type ServiceFormData = {
   name: string;
   duration: string;
   price: string;
   currency: string;
   description: string;
+  color: string;
+  location: string;
+  downPaymentType: string;
+  downPaymentValue: string;
+  serviceAreaOnly: boolean;
+  availabilitiesType: string;
+  attendantsNumber: string;
+  isPrivate: boolean;
   categoryId: string;
 };
 
@@ -457,6 +509,14 @@ function ServiceModal({
     price: initial?.price ?? '',
     currency: initial?.currency ?? 'USD',
     description: initial?.description ?? '',
+    color: initial?.color ?? SERVICE_COLORS[0],
+    location: initial?.location ?? '',
+    downPaymentType: initial?.downPaymentType ?? 'none',
+    downPaymentValue: initial?.downPaymentValue ?? '',
+    serviceAreaOnly: !!(initial?.serviceAreaOnly),
+    availabilitiesType: initial?.availabilitiesType ?? 'flexible',
+    attendantsNumber: initial?.attendantsNumber?.toString() ?? '1',
+    isPrivate: !!(initial?.isPrivate),
     categoryId: initial?.categoryId ?? '',
   });
   const [err, setErr] = useState<string | null>(null);
@@ -469,6 +529,14 @@ function ServiceModal({
         price: form.price.trim() || null,
         currency: form.currency || 'USD',
         description: form.description.trim() || null,
+        color: form.color || null,
+        location: form.location.trim() || null,
+        down_payment_type: form.downPaymentType,
+        down_payment_value: form.downPaymentValue.trim() || null,
+        service_area_only: form.serviceAreaOnly ? 1 : 0,
+        availabilities_type: form.availabilitiesType,
+        attendants_number: form.attendantsNumber ? Number(form.attendantsNumber) : 1,
+        is_private: form.isPrivate ? 1 : 0,
         id_service_categories: form.categoryId || null,
       };
       if (isEdit) {
@@ -493,15 +561,18 @@ function ServiceModal({
     mut.mutate();
   }
 
+  const set = <K extends keyof ServiceFormData>(key: K, val: ServiceFormData[K]) =>
+    setForm((f) => ({ ...f, [key]: val }));
+
   return (
     <ModalOverlay title={isEdit ? 'Edit service' : 'New service'} onClose={onClose}>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="max-h-[80vh] overflow-y-auto pr-1">
         <FormRow>
           <FieldLabel htmlFor="svc-name">Name *</FieldLabel>
           <TextInput
             id="svc-name"
             value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            onChange={(e) => set('name', e.target.value)}
             placeholder="e.g. Haircut"
             autoFocus
           />
@@ -509,13 +580,13 @@ function ServiceModal({
 
         <div className="mb-4 grid grid-cols-2 gap-3">
           <div>
-            <FieldLabel htmlFor="svc-duration">Duration (min)</FieldLabel>
+            <FieldLabel htmlFor="svc-duration">Duration (minutes)</FieldLabel>
             <TextInput
               id="svc-duration"
               type="number"
               min={1}
               value={form.duration}
-              onChange={(e) => setForm((f) => ({ ...f, duration: e.target.value }))}
+              onChange={(e) => set('duration', e.target.value)}
               placeholder="30"
             />
           </div>
@@ -524,10 +595,39 @@ function ServiceModal({
             <TextInput
               id="svc-price"
               value={form.price}
-              onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+              onChange={(e) => set('price', e.target.value)}
               placeholder="0.00"
             />
           </div>
+        </div>
+
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div>
+            <FieldLabel htmlFor="svc-dp-type">Down Payment Type</FieldLabel>
+            <SelectInput
+              id="svc-dp-type"
+              value={form.downPaymentType}
+              onChange={(e) => set('downPaymentType', e.target.value)}
+            >
+              <option value="none">None</option>
+              <option value="fixed">Fixed Amount</option>
+              <option value="percent">Percent</option>
+            </SelectInput>
+          </div>
+          {form.downPaymentType !== 'none' && (
+            <div>
+              <FieldLabel htmlFor="svc-dp-value">Down Payment Value</FieldLabel>
+              <TextInput
+                id="svc-dp-value"
+                type="number"
+                min={0}
+                step={0.01}
+                value={form.downPaymentValue}
+                onChange={(e) => set('downPaymentValue', e.target.value)}
+                placeholder={form.downPaymentType === 'percent' ? '0–100' : '0.00'}
+              />
+            </div>
+          )}
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-3">
@@ -536,7 +636,7 @@ function ServiceModal({
             <TextInput
               id="svc-currency"
               value={form.currency}
-              onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+              onChange={(e) => set('currency', e.target.value)}
               placeholder="USD"
             />
           </div>
@@ -545,7 +645,7 @@ function ServiceModal({
             <SelectInput
               id="svc-category"
               value={form.categoryId}
-              onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
+              onChange={(e) => set('categoryId', e.target.value)}
             >
               <option value="">— None —</option>
               {categories.map((c) => (
@@ -555,12 +655,79 @@ function ServiceModal({
           </div>
         </div>
 
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div>
+            <FieldLabel htmlFor="svc-avail-type">Availabilities Type</FieldLabel>
+            <SelectInput
+              id="svc-avail-type"
+              value={form.availabilitiesType}
+              onChange={(e) => set('availabilitiesType', e.target.value)}
+            >
+              <option value="flexible">Flexible</option>
+              <option value="fixed">Fixed</option>
+            </SelectInput>
+          </div>
+          <div>
+            <FieldLabel htmlFor="svc-attendants">Attendants Number</FieldLabel>
+            <TextInput
+              id="svc-attendants"
+              type="number"
+              min={1}
+              value={form.attendantsNumber}
+              onChange={(e) => set('attendantsNumber', e.target.value)}
+            />
+          </div>
+        </div>
+
+        <FormRow>
+          <FieldLabel htmlFor="svc-location">Location</FieldLabel>
+          <TextInput
+            id="svc-location"
+            value={form.location}
+            onChange={(e) => set('location', e.target.value)}
+            placeholder="Optional location…"
+          />
+        </FormRow>
+
+        <FormRow>
+          <FieldLabel htmlFor="svc-color">Color</FieldLabel>
+          <ServiceColorPicker value={form.color} onChange={(c) => set('color', c)} />
+        </FormRow>
+
+        <div className="mb-4 space-y-3 rounded-lg border border-zinc-700 p-3">
+          <p className="text-xs font-medium text-zinc-400">Options</p>
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={form.isPrivate}
+              onChange={(e) => set('isPrivate', e.target.checked)}
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-600/50"
+            />
+            <div>
+              <span className="block text-sm text-zinc-200">Hide From Public</span>
+              <span className="block text-xs text-zinc-500">Won't appear on the booking page</span>
+            </div>
+          </label>
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={form.serviceAreaOnly}
+              onChange={(e) => set('serviceAreaOnly', e.target.checked)}
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-600/50"
+            />
+            <div>
+              <span className="block text-sm text-zinc-200">Only show providers in service area</span>
+              <span className="block text-xs text-zinc-500">Limit providers to those serving the customer's ZIP code</span>
+            </div>
+          </label>
+        </div>
+
         <FormRow>
           <FieldLabel htmlFor="svc-desc">Description</FieldLabel>
           <TextArea
             id="svc-desc"
             value={form.description}
-            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            onChange={(e) => set('description', e.target.value)}
             placeholder="Optional description…"
           />
         </FormRow>
@@ -599,6 +766,68 @@ function ServiceDeleteModal({
         <FormActions onCancel={onClose} submitLabel="Delete" isLoading={mut.isPending} destructive />
       </form>
     </ModalOverlay>
+  );
+}
+
+function ServiceActionsMenu({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function h(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Actions"
+        aria-expanded={open}
+        className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+      >
+        <svg viewBox="0 0 4 18" className="h-4 w-4 fill-current" aria-hidden>
+          <circle cx="2" cy="2" r="1.5" />
+          <circle cx="2" cy="9" r="1.5" />
+          <circle cx="2" cy="16" r="1.5" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+4px)] z-30 w-40 rounded-xl border border-zinc-700 bg-zinc-900 p-1 shadow-xl">
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onEdit(); }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          >
+            <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 fill-current text-zinc-500" aria-hidden>
+              <path d="M17.414 2.586a2 2 0 0 0-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 0 0 0-2.828zM5 12v3H2v-3l8-8 3 3-8 8z" />
+            </svg>
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onDelete(); }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-zinc-800 hover:text-red-300"
+          >
+            <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 fill-current" aria-hidden>
+              <path fillRule="evenodd" d="M9 2a1 1 0 0 0-.894.553L7.382 4H4a1 1 0 0 0 0 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6a1 1 0 1 0 0-2h-3.382l-.724-1.447A1 1 0 0 0 11 2H9zM7 8a1 1 0 0 1 2 0v6a1 1 0 1 1-2 0V8zm4 0a1 1 0 1 1 2 0v6a1 1 0 1 1-2 0V8z" clipRule="evenodd" />
+            </svg>
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -673,9 +902,18 @@ export function StaffServicesPage() {
                         ].join(' ')}
                         aria-pressed={isSelected}
                       >
-                        <strong className="block text-sm font-semibold text-zinc-100">
-                          {s.name ?? `Service ${s.id}`}
-                        </strong>
+                        <div className="flex items-center gap-2">
+                          {s.color && (
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: s.color }}
+                              aria-hidden
+                            />
+                          )}
+                          <strong className="block text-sm font-semibold text-zinc-100">
+                            {s.name ?? `Service ${s.id}`}
+                          </strong>
+                        </div>
                         {meta && (
                           <span className="mt-1 block text-xs leading-snug text-zinc-500">
                             {meta}
@@ -692,33 +930,33 @@ export function StaffServicesPage() {
         detail={
           selected ? (
             <div className="mx-auto max-w-lg space-y-5">
+              {/* Header */}
               <div className="flex items-start justify-between gap-4">
-                <h2 className="text-xl font-semibold text-zinc-50">
-                  {selected.name ?? `Service ${selected.id}`}
-                </h2>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setModal('edit')}
-                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModal('delete')}
-                    className="rounded-lg border border-red-800/60 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-950/40"
-                  >
-                    Delete
-                  </button>
+                <div className="flex min-w-0 items-center gap-3">
+                  {selected.color && (
+                    <span
+                      className="h-4 w-4 shrink-0 rounded-full ring-1 ring-white/10"
+                      style={{ backgroundColor: selected.color }}
+                      aria-hidden
+                    />
+                  )}
+                  <h2 className="text-xl font-semibold text-zinc-50">
+                    {selected.name ?? `Service ${selected.id}`}
+                  </h2>
                 </div>
+                <ServiceActionsMenu
+                  onEdit={() => setModal('edit')}
+                  onDelete={() => setModal('delete')}
+                />
               </div>
 
+              {/* Description */}
               {selected.description && (
                 <p className="text-sm leading-relaxed text-zinc-400">{selected.description}</p>
               )}
 
-              <dl className="space-y-0 divide-y divide-zinc-800 text-sm text-zinc-300">
+              {/* Fields */}
+              <dl className="divide-y divide-zinc-800 text-sm text-zinc-300">
                 {selected.categoryName && (
                   <div className="flex justify-between gap-4 py-2.5">
                     <dt className="text-zinc-500">Category</dt>
@@ -737,14 +975,41 @@ export function StaffServicesPage() {
                       : '—'}
                   </dd>
                 </div>
+                {selected.downPaymentType && selected.downPaymentType !== 'none' && (
+                  <div className="flex justify-between gap-4 py-2.5">
+                    <dt className="text-zinc-500">Down Payment</dt>
+                    <dd>
+                      {selected.downPaymentValue ?? '0'}
+                      {selected.downPaymentType === 'percent' ? '%' : ` ${selected.currency ?? ''}`}
+                      {' '}
+                      <span className="text-xs text-zinc-500">({selected.downPaymentType})</span>
+                    </dd>
+                  </div>
+                )}
+                <div className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-zinc-500">Availabilities</dt>
+                  <dd className="capitalize">{selected.availabilitiesType ?? 'flexible'}</dd>
+                </div>
                 <div className="flex justify-between gap-4 py-2.5">
                   <dt className="text-zinc-500">Attendants</dt>
                   <dd>{selected.attendantsNumber ?? 1}</dd>
                 </div>
+                {selected.location && (
+                  <div className="flex justify-between gap-4 py-2.5">
+                    <dt className="text-zinc-500">Location</dt>
+                    <dd className="text-right">{selected.location}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between gap-4 py-2.5">
                   <dt className="text-zinc-500">Visibility</dt>
                   <dd>{selected.isPrivate ? 'Private' : 'Public'}</dd>
                 </div>
+                {!!(selected.serviceAreaOnly) && (
+                  <div className="flex justify-between gap-4 py-2.5">
+                    <dt className="text-zinc-500">Service area</dt>
+                    <dd>Providers in area only</dd>
+                  </div>
+                )}
                 <div className="flex justify-between gap-4 py-2.5">
                   <dt className="text-zinc-500">ID</dt>
                   <dd className="font-mono text-xs text-zinc-400">{selected.id}</dd>

@@ -58,6 +58,11 @@ export class StaffServicesController {
         price: s.price?.toString() ?? null,
         currency: s.currency,
         description: s.description,
+        color: s.color,
+        location: s.location,
+        downPaymentType: s.downPaymentType,
+        downPaymentValue: s.downPaymentValue?.toString() ?? null,
+        serviceAreaOnly: s.serviceAreaOnly,
         availabilitiesType: s.availabilitiesType,
         attendantsNumber: s.attendantsNumber,
         isPrivate: s.isPrivate,
@@ -79,6 +84,15 @@ export class StaffServicesController {
       duration?: number;
       price?: string;
       currency?: string;
+      description?: string;
+      color?: string;
+      location?: string;
+      down_payment_type?: string;
+      down_payment_value?: string;
+      service_area_only?: number;
+      attendants_number?: number;
+      is_private?: number;
+      availabilities_type?: string;
       id_service_categories?: string;
     },
   ) {
@@ -104,10 +118,16 @@ export class StaffServicesController {
         duration,
         price: body.price != null ? body.price : null,
         currency: body.currency ?? 'USD',
+        description: body.description?.trim() ?? null,
+        color: body.color ?? null,
+        location: body.location?.trim() ?? null,
+        downPaymentType: body.down_payment_type ?? 'none',
+        downPaymentValue: body.down_payment_value != null ? body.down_payment_value : null,
+        serviceAreaOnly: body.service_area_only ?? 0,
         idServiceCategories: catId,
-        availabilitiesType: 'flexible',
-        attendantsNumber: 1,
-        isPrivate: 0,
+        availabilitiesType: body.availabilities_type ?? 'flexible',
+        attendantsNumber: body.attendants_number ?? 1,
+        isPrivate: body.is_private ?? 0,
       },
     });
     return { id: created.id.toString() };
@@ -124,9 +144,15 @@ export class StaffServicesController {
       price?: string | null;
       currency?: string;
       description?: string | null;
-      id_service_categories?: string | null;
+      color?: string | null;
+      location?: string | null;
+      down_payment_type?: string;
+      down_payment_value?: string | null;
+      service_area_only?: number;
+      availabilities_type?: string;
       attendants_number?: number;
       is_private?: number;
+      id_service_categories?: string | null;
     },
   ) {
     if (!can(req.staffUser.permissions, 'services', 'edit')) {
@@ -161,6 +187,12 @@ export class StaffServicesController {
         ...(body.currency !== undefined ? { currency: body.currency } : {}),
         ...(body.description !== undefined ? { description: body.description?.trim() || null } : {}),
         ...(catId !== undefined ? { idServiceCategories: catId } : {}),
+        ...(body.color !== undefined ? { color: body.color } : {}),
+        ...(body.location !== undefined ? { location: body.location?.trim() || null } : {}),
+        ...(body.down_payment_type !== undefined ? { downPaymentType: body.down_payment_type } : {}),
+        ...(body.down_payment_value !== undefined ? { downPaymentValue: body.down_payment_value === null ? null : body.down_payment_value } : {}),
+        ...(body.service_area_only !== undefined ? { serviceAreaOnly: body.service_area_only } : {}),
+        ...(body.availabilities_type !== undefined ? { availabilitiesType: body.availabilities_type } : {}),
         ...(body.attendants_number !== undefined ? { attendantsNumber: body.attendants_number } : {}),
         ...(body.is_private !== undefined ? { isPrivate: body.is_private } : {}),
       },

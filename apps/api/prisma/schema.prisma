@@ -110,16 +110,21 @@ model ServiceCategory {
 }
 
 model Service {
-  id                   BigInt  @id @default(autoincrement())
-  name                 String? @db.VarChar(256)
+  id                   BigInt   @id @default(autoincrement())
+  name                 String?  @db.VarChar(256)
   duration             Int?
   price                Decimal? @db.Decimal(10, 2)
-  currency             String? @db.VarChar(32)
-  description          String? @db.Text
-  idServiceCategories  BigInt? @map("id_service_categories")
-  availabilitiesType   String? @map("availabilities_type") @db.VarChar(32)
-  attendantsNumber     Int?    @default(1) @map("attendants_number")
-  isPrivate            Int?    @default(0) @map("is_private") @db.TinyInt
+  currency             String?  @db.VarChar(32)
+  description          String?  @db.Text
+  color                String?  @db.VarChar(32)
+  location             String?  @db.Text
+  downPaymentType      String?  @default("none") @map("down_payment_type") @db.VarChar(32)
+  downPaymentValue     Decimal? @map("down_payment_value") @db.Decimal(10, 2)
+  serviceAreaOnly      Int?     @default(0) @map("service_area_only") @db.TinyInt
+  idServiceCategories  BigInt?  @map("id_service_categories")
+  availabilitiesType   String?  @default("flexible") @map("availabilities_type") @db.VarChar(32)
+  attendantsNumber     Int?     @default(1) @map("attendants_number")
+  isPrivate            Int?     @default(0) @map("is_private") @db.TinyInt
 
   category ServiceCategory? @relation(fields: [idServiceCategories], references: [id], onDelete: SetNull)
   providers ServiceProvider[]
