@@ -57,8 +57,10 @@ export class StaffServicesController {
         duration: s.duration,
         price: s.price?.toString() ?? null,
         currency: s.currency,
+        description: s.description,
         availabilitiesType: s.availabilitiesType,
         attendantsNumber: s.attendantsNumber,
+        isPrivate: s.isPrivate,
         categoryId: s.idServiceCategories?.toString() ?? null,
         categoryName: s.category?.name ?? null,
       })),
@@ -121,6 +123,10 @@ export class StaffServicesController {
       duration?: number;
       price?: string | null;
       currency?: string;
+      description?: string | null;
+      id_service_categories?: string | null;
+      attendants_number?: number;
+      is_private?: number;
     },
   ) {
     if (!can(req.staffUser.permissions, 'services', 'edit')) {
@@ -132,19 +138,31 @@ export class StaffServicesController {
     } catch {
       throw new NotFoundException();
     }
-    const existing = await this.prisma.service.findUnique({
-      where: { id: sid },
-    });
-    if (!existing) {
-      throw new NotFoundException();
+    const existing = await this.prisma.service.findUnique({ where: { id: sid } });
+    if (!existing) throw new NotFoundException();
+
+    let catId: bigint | null | undefined;
+    if (body.id_service_categories === null) {
+      catId = null;
+    } else if (body.id_service_categories !== undefined) {
+      try {
+        catId = BigInt(body.id_service_categories);
+      } catch {
+        throw new BadRequestException('Invalid category id');
+      }
     }
+
     await this.prisma.service.update({
       where: { id: sid },
       data: {
-        name: body.name !== undefined ? body.name.trim() || null : undefined,
-        duration: body.duration,
-        price: body.price === null ? null : body.price,
-        currency: body.currency,
+        ...(body.name !== undefined ? { name: body.name.trim() || null } : {}),
+        ...(body.duration !== undefined ? { duration: body.duration } : {}),
+        ...(body.price !== undefined ? { price: body.price === null ? null : body.price } : {}),
+        ...(body.currency !== undefined ? { currency: body.currency } : {}),
+        ...(body.description !== undefined ? { description: body.description?.trim() || null } : {}),
+        ...(catId !== undefined ? { idServiceCategories: catId } : {}),
+        ...(body.attendants_number !== undefined ? { attendantsNumber: body.attendants_number } : {}),
+        ...(body.is_private !== undefined ? { isPrivate: body.is_private } : {}),
       },
     });
     return { ok: true };

@@ -281,11 +281,141 @@ export function StaffLogsPage() {
   );
 }
 
+// ─── Shared modal primitives ────────────────────────────────────────────────
+
+function ModalOverlay({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
+          <h3 className="text-base font-semibold text-zinc-50">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="mb-1 block text-xs font-medium text-zinc-400">
+      {children}
+    </label>
+  );
+}
+
+function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      className={[
+        'w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100',
+        'placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/50',
+        props.className ?? '',
+      ].join(' ')}
+    />
+  );
+}
+
+function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      rows={3}
+      {...props}
+      className={[
+        'w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100',
+        'placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/50',
+        props.className ?? '',
+      ].join(' ')}
+    />
+  );
+}
+
+function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className={[
+        'w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100',
+        'focus:outline-none focus:ring-2 focus:ring-emerald-600/50',
+        props.className ?? '',
+      ].join(' ')}
+    />
+  );
+}
+
+function FormRow({ children }: { children: React.ReactNode }) {
+  return <div className="mb-4">{children}</div>;
+}
+
+function FormActions({
+  onCancel,
+  submitLabel,
+  isLoading,
+  destructive,
+}: {
+  onCancel: () => void;
+  submitLabel: string;
+  isLoading: boolean;
+  destructive?: boolean;
+}) {
+  return (
+    <div className="mt-6 flex justify-end gap-3">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        disabled={isLoading}
+        className={[
+          'rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60',
+          destructive
+            ? 'bg-red-600 hover:bg-red-500'
+            : 'bg-emerald-600 hover:bg-emerald-500',
+        ].join(' ')}
+      >
+        {isLoading ? 'Saving…' : submitLabel}
+      </button>
+    </div>
+  );
+}
+
+// ─── Services ────────────────────────────────────────────────────────────────
+
 type ServiceRow = {
   id: string;
   name: string | null;
   duration: number | null;
   price: string | null;
+  currency: string | null;
+  description: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  attendantsNumber: number | null;
+  isPrivate: number | null;
 };
 
 function filterServices(items: ServiceRow[], q: string): ServiceRow[] {
@@ -300,15 +430,192 @@ function filterServices(items: ServiceRow[], q: string): ServiceRow[] {
   });
 }
 
+type ServiceFormData = {
+  name: string;
+  duration: string;
+  price: string;
+  currency: string;
+  description: string;
+  categoryId: string;
+};
+
+function ServiceModal({
+  initial,
+  categories,
+  onClose,
+  onSaved,
+}: {
+  initial?: ServiceRow;
+  categories: CategoryRow[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEdit = !!initial;
+  const [form, setForm] = useState<ServiceFormData>({
+    name: initial?.name ?? '',
+    duration: initial?.duration?.toString() ?? '30',
+    price: initial?.price ?? '',
+    currency: initial?.currency ?? 'USD',
+    description: initial?.description ?? '',
+    categoryId: initial?.categoryId ?? '',
+  });
+  const [err, setErr] = useState<string | null>(null);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const body: Record<string, unknown> = {
+        name: form.name.trim(),
+        duration: form.duration ? Number(form.duration) : undefined,
+        price: form.price.trim() || null,
+        currency: form.currency || 'USD',
+        description: form.description.trim() || null,
+        id_service_categories: form.categoryId || null,
+      };
+      if (isEdit) {
+        return apiJson(`/api/staff/services/${initial!.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        });
+      }
+      return apiJson('/api/staff/services', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    },
+    onSuccess: () => { onSaved(); onClose(); },
+    onError: (e) => setErr((e as Error).message),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (!form.name.trim()) { setErr('Name is required'); return; }
+    mut.mutate();
+  }
+
+  return (
+    <ModalOverlay title={isEdit ? 'Edit service' : 'New service'} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <FormRow>
+          <FieldLabel htmlFor="svc-name">Name *</FieldLabel>
+          <TextInput
+            id="svc-name"
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="e.g. Haircut"
+            autoFocus
+          />
+        </FormRow>
+
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div>
+            <FieldLabel htmlFor="svc-duration">Duration (min)</FieldLabel>
+            <TextInput
+              id="svc-duration"
+              type="number"
+              min={1}
+              value={form.duration}
+              onChange={(e) => setForm((f) => ({ ...f, duration: e.target.value }))}
+              placeholder="30"
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor="svc-price">Price</FieldLabel>
+            <TextInput
+              id="svc-price"
+              value={form.price}
+              onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div>
+            <FieldLabel htmlFor="svc-currency">Currency</FieldLabel>
+            <TextInput
+              id="svc-currency"
+              value={form.currency}
+              onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
+              placeholder="USD"
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor="svc-category">Category</FieldLabel>
+            <SelectInput
+              id="svc-category"
+              value={form.categoryId}
+              onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
+            >
+              <option value="">— None —</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name ?? c.id}</option>
+              ))}
+            </SelectInput>
+          </div>
+        </div>
+
+        <FormRow>
+          <FieldLabel htmlFor="svc-desc">Description</FieldLabel>
+          <TextArea
+            id="svc-desc"
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="Optional description…"
+          />
+        </FormRow>
+
+        {err && <p className="mb-3 text-sm text-red-400">{err}</p>}
+        <FormActions onCancel={onClose} submitLabel={isEdit ? 'Save changes' : 'Create service'} isLoading={mut.isPending} />
+      </form>
+    </ModalOverlay>
+  );
+}
+
+function ServiceDeleteModal({
+  service,
+  onClose,
+  onDeleted,
+}: {
+  service: ServiceRow;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [err, setErr] = useState<string | null>(null);
+  const mut = useMutation({
+    mutationFn: () =>
+      apiJson(`/api/staff/services/${service.id}`, { method: 'DELETE' }),
+    onSuccess: () => { onDeleted(); onClose(); },
+    onError: (e) => setErr((e as Error).message),
+  });
+
+  return (
+    <ModalOverlay title="Delete service" onClose={onClose}>
+      <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}>
+        <p className="text-sm text-zinc-300">
+          Are you sure you want to delete <strong className="text-zinc-100">{service.name ?? `Service ${service.id}`}</strong>? This cannot be undone.
+        </p>
+        {err && <p className="mt-3 text-sm text-red-400">{err}</p>}
+        <FormActions onCancel={onClose} submitLabel="Delete" isLoading={mut.isPending} destructive />
+      </form>
+    </ModalOverlay>
+  );
+}
+
 export function StaffServicesPage() {
+  const qc = useQueryClient();
   const q = useQuery({
     queryKey: ['staff', 'services'],
-    queryFn: () =>
-      apiJson<{ items: ServiceRow[] }>('/api/staff/services'),
+    queryFn: () => apiJson<{ items: ServiceRow[] }>('/api/staff/services'),
+  });
+  const catQ = useQuery({
+    queryKey: ['staff', 'service-categories'],
+    queryFn: () => apiJson<{ items: CategoryRow[] }>('/api/staff/service-categories'),
   });
 
   const [filter, setFilter] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [modal, setModal] = useState<'create' | 'edit' | 'delete' | null>(null);
 
   const filtered = useMemo(
     () => (q.isSuccess ? filterServices(q.data.items, filter) : []),
@@ -316,92 +623,167 @@ export function StaffServicesPage() {
   );
 
   const selected = q.isSuccess ? q.data.items.find((s) => s.id === selectedId) : undefined;
+  const categories = catQ.isSuccess ? catQ.data.items : [];
+
+  function invalidate() {
+    void qc.invalidateQueries({ queryKey: ['staff', 'services'] });
+  }
 
   return (
-    <StaffMasterDetailLayout
-      panel={
-        <StaffRecordListPanel
-          id="filter-services"
-          title="Services"
-          searchValue={filter}
-          onSearchChange={setFilter}
-        >
-          {q.isPending && (
-            <p className="px-4 py-6 text-sm text-zinc-500">Loading…</p>
-          )}
-          {q.isError && (
-            <p className="px-4 py-6 text-sm text-red-400">{(q.error as Error).message}</p>
-          )}
-          {q.isSuccess && filtered.length === 0 && (
-            <p className="px-4 py-6 text-sm text-zinc-500">No matching services.</p>
-          )}
-          {q.isSuccess && filtered.length > 0 && (
-            <ul className="divide-y divide-zinc-800">
-              {filtered.map((s) => {
-                const isSelected = selectedId === s.id;
-                const meta = [
-                  s.duration != null ? `${s.duration} min` : null,
-                  s.price != null ? s.price : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ');
-                return (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(s.id)}
-                      className={[
-                        'w-full px-3.5 py-3.5 text-left transition-colors',
-                        isSelected
-                          ? 'border-l-[3px] border-emerald-500 bg-zinc-800/90 pl-[calc(0.875rem-3px)]'
-                          : 'hover:bg-zinc-900/80',
-                      ].join(' ')}
-                      aria-pressed={isSelected}
-                    >
-                      <strong className="block text-sm font-semibold text-zinc-100">
-                        {s.name ?? `Service ${s.id}`}
-                      </strong>
-                      {meta && (
-                        <span className="mt-1 block text-xs leading-snug text-zinc-500">
-                          {meta}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </StaffRecordListPanel>
-      }
-      detail={
-        selected ? (
-          <div className="mx-auto max-w-lg space-y-4">
-            <h2 className="text-xl font-semibold text-zinc-50">
-              {selected.name ?? `Service ${selected.id}`}
-            </h2>
-            <dl className="space-y-2 text-sm text-zinc-300">
-              <div className="flex justify-between gap-4 border-b border-zinc-800 py-2">
-                <dt className="text-zinc-500">Duration</dt>
-                <dd>{selected.duration != null ? `${selected.duration} min` : '—'}</dd>
+    <>
+      <StaffMasterDetailLayout
+        panel={
+          <StaffRecordListPanel
+            id="filter-services"
+            title="Services"
+            searchValue={filter}
+            onSearchChange={setFilter}
+            addButton={{ label: '+ Add', onClick: () => setModal('create') }}
+          >
+            {q.isPending && (
+              <p className="px-4 py-6 text-sm text-zinc-500">Loading…</p>
+            )}
+            {q.isError && (
+              <p className="px-4 py-6 text-sm text-red-400">{(q.error as Error).message}</p>
+            )}
+            {q.isSuccess && filtered.length === 0 && (
+              <p className="px-4 py-6 text-sm text-zinc-500">No matching services.</p>
+            )}
+            {q.isSuccess && filtered.length > 0 && (
+              <ul className="divide-y divide-zinc-800">
+                {filtered.map((s) => {
+                  const isSelected = selectedId === s.id;
+                  const meta = [
+                    s.duration != null ? `${s.duration} min` : null,
+                    s.price != null ? `${s.price}${s.currency ? ` ${s.currency}` : ''}` : null,
+                    s.categoryName ?? null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ');
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(s.id)}
+                        className={[
+                          'w-full px-3.5 py-3.5 text-left transition-colors',
+                          isSelected
+                            ? 'border-l-[3px] border-emerald-500 bg-zinc-800/90 pl-[calc(0.875rem-3px)]'
+                            : 'hover:bg-zinc-900/80',
+                        ].join(' ')}
+                        aria-pressed={isSelected}
+                      >
+                        <strong className="block text-sm font-semibold text-zinc-100">
+                          {s.name ?? `Service ${s.id}`}
+                        </strong>
+                        {meta && (
+                          <span className="mt-1 block text-xs leading-snug text-zinc-500">
+                            {meta}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </StaffRecordListPanel>
+        }
+        detail={
+          selected ? (
+            <div className="mx-auto max-w-lg space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="text-xl font-semibold text-zinc-50">
+                  {selected.name ?? `Service ${selected.id}`}
+                </h2>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModal('edit')}
+                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModal('delete')}
+                    className="rounded-lg border border-red-800/60 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-950/40"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-              <div className="flex justify-between gap-4 border-b border-zinc-800 py-2">
-                <dt className="text-zinc-500">Price</dt>
-                <dd>{selected.price ?? '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-4 py-2">
-                <dt className="text-zinc-500">ID</dt>
-                <dd className="font-mono text-xs text-zinc-400">{selected.id}</dd>
-              </div>
-            </dl>
-          </div>
-        ) : (
-          <StaffRecordPlaceholder message="Select a service from the list." />
-        )
-      }
-    />
+
+              {selected.description && (
+                <p className="text-sm leading-relaxed text-zinc-400">{selected.description}</p>
+              )}
+
+              <dl className="space-y-0 divide-y divide-zinc-800 text-sm text-zinc-300">
+                {selected.categoryName && (
+                  <div className="flex justify-between gap-4 py-2.5">
+                    <dt className="text-zinc-500">Category</dt>
+                    <dd>{selected.categoryName}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-zinc-500">Duration</dt>
+                  <dd>{selected.duration != null ? `${selected.duration} min` : '—'}</dd>
+                </div>
+                <div className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-zinc-500">Price</dt>
+                  <dd>
+                    {selected.price != null
+                      ? `${selected.price}${selected.currency ? ` ${selected.currency}` : ''}`
+                      : '—'}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-zinc-500">Attendants</dt>
+                  <dd>{selected.attendantsNumber ?? 1}</dd>
+                </div>
+                <div className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-zinc-500">Visibility</dt>
+                  <dd>{selected.isPrivate ? 'Private' : 'Public'}</dd>
+                </div>
+                <div className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-zinc-500">ID</dt>
+                  <dd className="font-mono text-xs text-zinc-400">{selected.id}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : (
+            <StaffRecordPlaceholder message="Select a service from the list." />
+          )
+        }
+      />
+
+      {modal === 'create' && (
+        <ServiceModal
+          categories={categories}
+          onClose={() => setModal(null)}
+          onSaved={invalidate}
+        />
+      )}
+      {modal === 'edit' && selected && (
+        <ServiceModal
+          initial={selected}
+          categories={categories}
+          onClose={() => setModal(null)}
+          onSaved={invalidate}
+        />
+      )}
+      {modal === 'delete' && selected && (
+        <ServiceDeleteModal
+          service={selected}
+          onClose={() => setModal(null)}
+          onDeleted={() => { setSelectedId(null); invalidate(); }}
+        />
+      )}
+    </>
   );
 }
+
+// ─── Service Categories ───────────────────────────────────────────────────────
 
 type CategoryRow = { id: string; name: string | null; description: string | null };
 
@@ -415,15 +797,114 @@ function filterCategories(items: CategoryRow[], q: string): CategoryRow[] {
   });
 }
 
+function CategoryModal({
+  initial,
+  onClose,
+  onSaved,
+}: {
+  initial?: CategoryRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEdit = !!initial;
+  const [name, setName] = useState(initial?.name ?? '');
+  const [desc, setDesc] = useState(initial?.description ?? '');
+  const [err, setErr] = useState<string | null>(null);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const body = { name: name.trim(), description: desc.trim() || null };
+      if (isEdit) {
+        return apiJson(`/api/staff/service-categories/${initial!.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        });
+      }
+      return apiJson('/api/staff/service-categories', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    },
+    onSuccess: () => { onSaved(); onClose(); },
+    onError: (e) => setErr((e as Error).message),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (!name.trim()) { setErr('Name is required'); return; }
+    mut.mutate();
+  }
+
+  return (
+    <ModalOverlay title={isEdit ? 'Edit category' : 'New category'} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <FormRow>
+          <FieldLabel htmlFor="cat-name">Name *</FieldLabel>
+          <TextInput
+            id="cat-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Hair & Beauty"
+            autoFocus
+          />
+        </FormRow>
+        <FormRow>
+          <FieldLabel htmlFor="cat-desc">Description</FieldLabel>
+          <TextArea
+            id="cat-desc"
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            placeholder="Optional description…"
+          />
+        </FormRow>
+        {err && <p className="mb-3 text-sm text-red-400">{err}</p>}
+        <FormActions onCancel={onClose} submitLabel={isEdit ? 'Save changes' : 'Create category'} isLoading={mut.isPending} />
+      </form>
+    </ModalOverlay>
+  );
+}
+
+function CategoryDeleteModal({
+  category,
+  onClose,
+  onDeleted,
+}: {
+  category: CategoryRow;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [err, setErr] = useState<string | null>(null);
+  const mut = useMutation({
+    mutationFn: () =>
+      apiJson(`/api/staff/service-categories/${category.id}`, { method: 'DELETE' }),
+    onSuccess: () => { onDeleted(); onClose(); },
+    onError: (e) => setErr((e as Error).message),
+  });
+
+  return (
+    <ModalOverlay title="Delete category" onClose={onClose}>
+      <form onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}>
+        <p className="text-sm text-zinc-300">
+          Are you sure you want to delete <strong className="text-zinc-100">{category.name ?? `Category ${category.id}`}</strong>? Services assigned to this category will be unlinked.
+        </p>
+        {err && <p className="mt-3 text-sm text-red-400">{err}</p>}
+        <FormActions onCancel={onClose} submitLabel="Delete" isLoading={mut.isPending} destructive />
+      </form>
+    </ModalOverlay>
+  );
+}
+
 export function StaffServiceCategoriesPage() {
+  const qc = useQueryClient();
   const q = useQuery({
     queryKey: ['staff', 'service-categories'],
-    queryFn: () =>
-      apiJson<{ items: CategoryRow[] }>('/api/staff/service-categories'),
+    queryFn: () => apiJson<{ items: CategoryRow[] }>('/api/staff/service-categories'),
   });
 
   const [filter, setFilter] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [modal, setModal] = useState<'create' | 'edit' | 'delete' | null>(null);
 
   const filtered = useMemo(
     () => (q.isSuccess ? filterCategories(q.data.items, filter) : []),
@@ -432,73 +913,113 @@ export function StaffServiceCategoriesPage() {
 
   const selected = q.isSuccess ? q.data.items.find((c) => c.id === selectedId) : undefined;
 
+  function invalidate() {
+    void qc.invalidateQueries({ queryKey: ['staff', 'service-categories'] });
+  }
+
   return (
-    <StaffMasterDetailLayout
-      panel={
-        <StaffRecordListPanel
-          id="filter-service-categories"
-          title="Service categories"
-          searchValue={filter}
-          onSearchChange={setFilter}
-        >
-          {q.isPending && (
-            <p className="px-4 py-6 text-sm text-zinc-500">Loading…</p>
-          )}
-          {q.isError && (
-            <p className="px-4 py-6 text-sm text-red-400">{(q.error as Error).message}</p>
-          )}
-          {q.isSuccess && filtered.length === 0 && (
-            <p className="px-4 py-6 text-sm text-zinc-500">No matching categories.</p>
-          )}
-          {q.isSuccess && filtered.length > 0 && (
-            <ul className="divide-y divide-zinc-800">
-              {filtered.map((c) => {
-                const isSelected = selectedId === c.id;
-                return (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(c.id)}
-                      className={[
-                        'w-full px-3.5 py-3.5 text-left transition-colors',
-                        isSelected
-                          ? 'border-l-[3px] border-emerald-500 bg-zinc-800/90 pl-[calc(0.875rem-3px)]'
-                          : 'hover:bg-zinc-900/80',
-                      ].join(' ')}
-                      aria-pressed={isSelected}
-                    >
-                      <strong className="block text-sm font-semibold text-zinc-100">
-                        {c.name ?? '—'}
-                      </strong>
-                      {c.description && (
-                        <span className="mt-1 line-clamp-2 block text-xs leading-snug text-zinc-500">
-                          {c.description}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </StaffRecordListPanel>
-      }
-      detail={
-        selected ? (
-          <div className="mx-auto max-w-lg space-y-4">
-            <h2 className="text-xl font-semibold text-zinc-50">{selected.name ?? '—'}</h2>
-            {selected.description ? (
-              <p className="text-sm leading-relaxed text-zinc-400">{selected.description}</p>
-            ) : (
-              <p className="text-sm text-zinc-500">No description.</p>
+    <>
+      <StaffMasterDetailLayout
+        panel={
+          <StaffRecordListPanel
+            id="filter-service-categories"
+            title="Service categories"
+            searchValue={filter}
+            onSearchChange={setFilter}
+            addButton={{ label: '+ Add', onClick: () => setModal('create') }}
+          >
+            {q.isPending && (
+              <p className="px-4 py-6 text-sm text-zinc-500">Loading…</p>
             )}
-            <p className="font-mono text-xs text-zinc-600">ID: {selected.id}</p>
-          </div>
-        ) : (
-          <StaffRecordPlaceholder message="Select a category from the list." />
-        )
-      }
-    />
+            {q.isError && (
+              <p className="px-4 py-6 text-sm text-red-400">{(q.error as Error).message}</p>
+            )}
+            {q.isSuccess && filtered.length === 0 && (
+              <p className="px-4 py-6 text-sm text-zinc-500">No matching categories.</p>
+            )}
+            {q.isSuccess && filtered.length > 0 && (
+              <ul className="divide-y divide-zinc-800">
+                {filtered.map((c) => {
+                  const isSelected = selectedId === c.id;
+                  return (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(c.id)}
+                        className={[
+                          'w-full px-3.5 py-3.5 text-left transition-colors',
+                          isSelected
+                            ? 'border-l-[3px] border-emerald-500 bg-zinc-800/90 pl-[calc(0.875rem-3px)]'
+                            : 'hover:bg-zinc-900/80',
+                        ].join(' ')}
+                        aria-pressed={isSelected}
+                      >
+                        <strong className="block text-sm font-semibold text-zinc-100">
+                          {c.name ?? '—'}
+                        </strong>
+                        {c.description && (
+                          <span className="mt-1 line-clamp-2 block text-xs leading-snug text-zinc-500">
+                            {c.description}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </StaffRecordListPanel>
+        }
+        detail={
+          selected ? (
+            <div className="mx-auto max-w-lg space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="text-xl font-semibold text-zinc-50">{selected.name ?? '—'}</h2>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModal('edit')}
+                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModal('delete')}
+                    className="rounded-lg border border-red-800/60 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-950/40"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              {selected.description ? (
+                <p className="text-sm leading-relaxed text-zinc-400">{selected.description}</p>
+              ) : (
+                <p className="text-sm text-zinc-500">No description.</p>
+              )}
+              <p className="font-mono text-xs text-zinc-600">ID: {selected.id}</p>
+            </div>
+          ) : (
+            <StaffRecordPlaceholder message="Select a category from the list." />
+          )
+        }
+      />
+
+      {modal === 'create' && (
+        <CategoryModal onClose={() => setModal(null)} onSaved={invalidate} />
+      )}
+      {modal === 'edit' && selected && (
+        <CategoryModal initial={selected} onClose={() => setModal(null)} onSaved={invalidate} />
+      )}
+      {modal === 'delete' && selected && (
+        <CategoryDeleteModal
+          category={selected}
+          onClose={() => setModal(null)}
+          onDeleted={() => { setSelectedId(null); invalidate(); }}
+        />
+      )}
+    </>
   );
 }
 
