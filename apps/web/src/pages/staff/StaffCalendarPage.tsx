@@ -654,6 +654,12 @@ export function StaffCalendarPage() {
             center: 'title',
             right: 'timeGridDay,timeGridWeek,dayGridMonth',
           }}
+          buttonText={{
+            today: 'Today',
+            day: 'Day',
+            week: 'Week',
+            month: 'Month',
+          }}
           selectable
           select={onSelect}
           eventClick={onEventClick}
@@ -820,9 +826,9 @@ function AppointmentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-6 py-4">
           <h2 className="text-lg font-semibold text-zinc-100">
             {existing ? 'Edit Appointment' : 'New Appointment'}
           </h2>
@@ -836,8 +842,8 @@ function AppointmentModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="px-6 py-5 space-y-6">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
             {/* ── Appointment Details ── */}
             <section>
               <h3 className="mb-4 text-sm font-semibold text-zinc-300">Appointment Details</h3>
@@ -1045,7 +1051,7 @@ function AppointmentModal({
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 border-t border-zinc-800 px-6 py-4">
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-zinc-800 px-6 py-4">
             {onDelete && (
               <button
                 type="button"

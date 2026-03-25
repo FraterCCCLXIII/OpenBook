@@ -380,6 +380,8 @@ model CustomerAlert {
   idUsers        BigInt    @map("id_users")
   message        String?   @db.Text
   isRead         Int       @default(0) @map("is_read") @db.TinyInt
+  alertColor     String?   @map("alert_color") @db.VarChar(32)
+  authorName     String?   @map("author_name") @db.VarChar(256)
   createDatetime DateTime? @default(now()) @map("create_datetime") @db.DateTime(0)
 
   user User @relation(fields: [idUsers], references: [id], onDelete: Cascade)

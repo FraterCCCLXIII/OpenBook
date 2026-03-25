@@ -34,6 +34,8 @@ type Customer = {
     id: string;
     message: string | null;
     isRead: number;
+    color?: string | null;
+    authorName?: string | null;
     createDatetime: string | null;
   }[];
   customFields: {
@@ -315,16 +317,20 @@ function NotesTab({
 function AlertsTab({
   customer,
   onAddAlert,
-  onPatchAlert,
   onDeleteAlert,
   addPending,
 }: {
   customer: Customer;
-  onAddAlert: (text: string) => void;
-  onPatchAlert: (args: { alertId: string; is_read?: number }) => void;
+  onAddAlert: (text: string, color: string) => void;
   onDeleteAlert: (id: string) => void;
   addPending: boolean;
 }) {
+  const orderedAlerts = [...customer.alerts].sort((a, b) => {
+    const aTime = a.createDatetime ? new Date(a.createDatetime).getTime() : Number.POSITIVE_INFINITY;
+    const bTime = b.createDatetime ? new Date(b.createDatetime).getTime() : Number.POSITIVE_INFINITY;
+    return aTime - bTime;
+  });
+
   return (
     <div className="space-y-4">
       <form
@@ -333,64 +339,64 @@ function AlertsTab({
           e.preventDefault();
           const fd = new FormData(e.currentTarget);
           const text = String(fd.get('new_alert') ?? '').trim();
+          const color = String(fd.get('alert_color') ?? 'current');
           if (!text) return;
-          onAddAlert(text);
+          onAddAlert(text, color);
           (e.currentTarget as HTMLFormElement).reset();
         }}
       >
-        <input
-          name="new_alert"
-          placeholder="Alert message…"
-          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
-        />
+        <div className="flex flex-wrap gap-2">
+          <input
+            name="new_alert"
+            placeholder="Alert message…"
+            className="min-w-[220px] flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+          />
+          <select
+            name="alert_color"
+            defaultValue="current"
+            className="rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-500 focus:outline-none"
+            aria-label="Alert color"
+          >
+            <option value="current">Current</option>
+            <option value="red">Red</option>
+          </select>
+        </div>
         <div className="flex justify-end">
           <button
             type="submit"
             disabled={addPending}
-            className="rounded-lg bg-amber-800/60 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-700/60 disabled:opacity-50"
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
           >
             {addPending ? 'Adding…' : 'Add alert'}
           </button>
         </div>
       </form>
 
-      {customer.alerts.length === 0 ? (
+      {orderedAlerts.length === 0 ? (
         <p className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center text-sm text-zinc-500">
           No alerts.
         </p>
       ) : (
         <ul className="space-y-2">
-          {customer.alerts.map((a) => (
+          {orderedAlerts.map((a) => (
             <li
               key={a.id}
               className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 ${
-                a.isRead === 1
-                  ? 'border-zinc-800/50 bg-zinc-950/30'
+                a.color === 'red'
+                  ? 'border-red-900/40 bg-red-950/25'
                   : 'border-amber-900/40 bg-amber-950/20'
               }`}
             >
-              <label className="flex flex-1 cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={a.isRead === 1}
-                  onChange={(e) =>
-                    onPatchAlert({ alertId: a.id, is_read: e.target.checked ? 1 : 0 })
-                  }
-                  className="mt-0.5 accent-emerald-500"
-                />
-                <span
-                  className={`text-sm ${
-                    a.isRead === 1 ? 'text-zinc-500 line-through' : 'text-zinc-200'
-                  }`}
-                >
-                  {a.message}
-                  {a.createDatetime && (
-                    <span className="ml-2 text-xs text-zinc-600">
-                      {fmt(a.createDatetime)}
-                    </span>
-                  )}
-                </span>
-              </label>
+              <div className="flex-1 text-sm text-zinc-200">
+                <div className="whitespace-pre-wrap break-words">{a.message}</div>
+                {(a.createDatetime || a.authorName) && (
+                  <div className="mt-1 text-xs text-zinc-500">
+                    {[a.createDatetime ? fmt(a.createDatetime) : null, a.authorName]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -771,23 +777,11 @@ export function StaffCustomerDetailPage() {
   });
 
   const addAlert = useMutation({
-    mutationFn: (message: string) =>
+    mutationFn: (payload: { message: string; color: string }) =>
       apiJson(`/api/staff/customers/${encodeURIComponent(id ?? '')}/alerts`, {
         method: 'POST',
-        body: JSON.stringify({ message }),
+        body: JSON.stringify(payload),
       }),
-    onSuccess: invalidateCustomer,
-  });
-
-  const patchAlert = useMutation({
-    mutationFn: (args: { alertId: string; is_read?: number }) =>
-      apiJson(
-        `/api/staff/customers/${encodeURIComponent(id ?? '')}/alerts/${args.alertId}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ is_read: args.is_read }),
-        },
-      ),
     onSuccess: invalidateCustomer,
   });
 
@@ -846,6 +840,13 @@ export function StaffCustomerDetailPage() {
   const name =
     [customer.firstName, customer.lastName].filter(Boolean).join(' ') || 'Customer';
   const unreadAlerts = customer.alerts.filter((a) => a.isRead === 0).length;
+  const latestAlert = customer.alerts.length
+    ? [...customer.alerts].sort((a, b) => {
+      const aTime = a.createDatetime ? new Date(a.createDatetime).getTime() : 0;
+      const bTime = b.createDatetime ? new Date(b.createDatetime).getTime() : 0;
+      return bTime - aTime;
+    })[0]
+    : null;
 
   return (
     <div className="space-y-5">
@@ -856,12 +857,6 @@ export function StaffCustomerDetailPage() {
             <h1 className="text-xl font-semibold text-zinc-50">{name}</h1>
             <p className="mt-1 text-xs text-zinc-600">ID: {customer.id}</p>
           </div>
-          {unreadAlerts > 0 && (
-            <span className="flex items-center gap-1.5 rounded-full bg-amber-900/40 px-3 py-1 text-xs font-medium text-amber-400">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {unreadAlerts} unread alert{unreadAlerts > 1 ? 's' : ''}
-            </span>
-          )}
         </div>
         <div className="mt-3 flex flex-wrap gap-4 text-sm text-zinc-400">
           {customer.email && (
@@ -885,6 +880,35 @@ export function StaffCustomerDetailPage() {
             </span>
           )}
         </div>
+        {latestAlert?.message && (
+          <div
+            className={[
+              'mt-4 rounded-lg border px-4 py-3 text-sm',
+              latestAlert.color === 'red'
+                ? 'border-red-900/40 bg-red-950/25 text-red-100'
+                : 'border-amber-900/40 bg-amber-950/30 text-amber-100',
+            ].join(' ')}
+          >
+            <div className="flex items-start gap-2">
+              <AlertTriangle
+                className={[
+                  'mt-0.5 h-4 w-4 shrink-0',
+                  latestAlert.color === 'red' ? 'text-red-300' : 'text-amber-300',
+                ].join(' ')}
+              />
+              <div className="flex-1">
+                <div className="whitespace-pre-wrap break-words">{latestAlert.message}</div>
+                {(latestAlert.createDatetime || latestAlert.authorName) && (
+                  <div className="mt-1 text-xs text-current/70">
+                    {[latestAlert.createDatetime ? fmt(latestAlert.createDatetime) : null, latestAlert.authorName]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tab bar */}
@@ -930,8 +954,7 @@ export function StaffCustomerDetailPage() {
       {activeTab === 'alerts' && (
         <AlertsTab
           customer={customer}
-          onAddAlert={(text) => addAlert.mutate(text)}
-          onPatchAlert={(args) => patchAlert.mutate(args)}
+          onAddAlert={(text, color) => addAlert.mutate({ message: text, color })}
           onDeleteAlert={(alertId) => deleteAlert.mutate(alertId)}
           addPending={addAlert.isPending}
         />

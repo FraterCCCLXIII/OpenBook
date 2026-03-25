@@ -466,6 +466,25 @@ body {
   color: #f4f4f5; /* zinc-100 */
 }
 
+/* Conjoin buttons inside fc-button-group */
+.staff-calendar .fc-button-group {
+  display: inline-flex !important;
+}
+.staff-calendar .fc-button-group .fc-button {
+  border-radius: 0 !important;
+  margin-left: -1px !important;
+}
+.staff-calendar .fc-button-group .fc-button:first-child {
+  border-radius: 0.375rem 0 0 0.375rem !important;
+  margin-left: 0 !important;
+}
+.staff-calendar .fc-button-group .fc-button:last-child {
+  border-radius: 0 0.375rem 0.375rem 0 !important;
+}
+.staff-calendar .fc-button-group .fc-button:focus {
+  z-index: 1;
+}
+
 /* Toolbar buttons */
 .staff-calendar .fc-button {
   background-color: #27272a !important; /* zinc-800 */

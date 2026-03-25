@@ -206,7 +206,7 @@ export class StaffCustomersController {
   async addAlert(
     @Req() req: RequestWithStaff,
     @Param('id') id: string,
-    @Body() body: { message?: string },
+    @Body() body: { message?: string; color?: string },
   ) {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
@@ -217,13 +217,26 @@ export class StaffCustomersController {
     if (!message) {
       throw new BadRequestException('message is required');
     }
+    const color = body.color?.trim().toLowerCase();
+    if (color && !['current', 'red'].includes(color)) {
+      throw new BadRequestException('color must be current or red');
+    }
+    const authorName = req.staffUser.displayName?.trim() || req.staffUser.username;
     const row = await this.prisma.customerAlert.create({
-      data: { idUsers: uid, message, isRead: 0 },
+      data: {
+        idUsers: uid,
+        message,
+        isRead: 0,
+        alertColor: color || 'current',
+        authorName,
+      },
     });
     return {
       id: row.id.toString(),
       message: row.message,
       isRead: row.isRead,
+      color: row.alertColor,
+      authorName: row.authorName,
       createDatetime: row.createDatetime?.toISOString() ?? null,
     };
   }
@@ -233,7 +246,7 @@ export class StaffCustomersController {
     @Req() req: RequestWithStaff,
     @Param('id') id: string,
     @Param('alertId') alertId: string,
-    @Body() body: { message?: string; is_read?: number },
+    @Body() body: { message?: string; is_read?: number; color?: string },
   ) {
     if (!can(req.staffUser.permissions, 'customers', 'edit')) {
       throw new ForbiddenException();
@@ -252,17 +265,24 @@ export class StaffCustomersController {
     if (!existing) {
       throw new NotFoundException();
     }
+    const color = body.color?.trim().toLowerCase();
+    if (color && !['current', 'red'].includes(color)) {
+      throw new BadRequestException('color must be current or red');
+    }
     const row = await this.prisma.customerAlert.update({
       where: { id: aid },
       data: {
         ...(body.message !== undefined ? { message: body.message } : {}),
         ...(body.is_read !== undefined ? { isRead: body.is_read ? 1 : 0 } : {}),
+        ...(color ? { alertColor: color } : {}),
       },
     });
     return {
       id: row.id.toString(),
       message: row.message,
       isRead: row.isRead,
+      color: row.alertColor,
+      authorName: row.authorName,
     };
   }
 
@@ -627,6 +647,8 @@ export class StaffCustomersController {
         id: a.id.toString(),
         message: a.message,
         isRead: a.isRead,
+        color: a.alertColor,
+        authorName: a.authorName,
         createDatetime: a.createDatetime?.toISOString() ?? null,
       })),
       customFields: customFields.map((f) => ({

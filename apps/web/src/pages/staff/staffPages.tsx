@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Calendar, Link2, UserCircle2 } from 'lucide-react';
 import { StaffWorkingPlanEditor } from '../../components/staff/StaffWorkingPlanEditor';
 import { StaffMasterDetailLayout } from '../../components/staff/StaffMasterDetailLayout';
 import {
@@ -929,92 +930,98 @@ export function StaffServicesPage() {
         }
         detail={
           selected ? (
-            <div className="mx-auto max-w-lg space-y-5">
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-3">
-                  {selected.color && (
-                    <span
-                      className="h-4 w-4 shrink-0 rounded-full ring-1 ring-white/10"
-                      style={{ backgroundColor: selected.color }}
-                      aria-hidden
-                    />
-                  )}
-                  <h2 className="text-xl font-semibold text-zinc-50">
-                    {selected.name ?? `Service ${selected.id}`}
-                  </h2>
+            <div className="w-full space-y-6">
+              <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/30 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {selected.color && (
+                      <span
+                        className="h-4 w-4 shrink-0 rounded-full ring-1 ring-white/10"
+                        style={{ backgroundColor: selected.color }}
+                        aria-hidden
+                      />
+                    )}
+                    <h2 className="text-xl font-semibold text-zinc-50">
+                      {selected.name ?? `Service ${selected.id}`}
+                    </h2>
+                  </div>
+                  <ServiceActionsMenu
+                    onEdit={() => setModal('edit')}
+                    onDelete={() => setModal('delete')}
+                  />
                 </div>
-                <ServiceActionsMenu
-                  onEdit={() => setModal('edit')}
-                  onDelete={() => setModal('delete')}
-                />
+
+                {selected.description ? (
+                  <p className="text-sm leading-relaxed text-zinc-400">{selected.description}</p>
+                ) : (
+                  <p className="text-sm text-zinc-500">No description.</p>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">Category</span>
+                    <div className="text-sm text-zinc-200">
+                      {selected.categoryName ?? '—'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">Duration</span>
+                    <div className="text-sm text-zinc-200">
+                      {selected.duration != null ? `${selected.duration} min` : '—'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">Price</span>
+                    <div className="text-sm text-zinc-200">
+                      {selected.price != null
+                        ? `${selected.price}${selected.currency ? ` ${selected.currency}` : ''}`
+                        : '—'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">Down payment</span>
+                    <div className="text-sm text-zinc-200">
+                      {selected.downPaymentType && selected.downPaymentType !== 'none'
+                        ? `${selected.downPaymentValue ?? '0'}${selected.downPaymentType === 'percent' ? '%' : ` ${selected.currency ?? ''}`}`
+                        : '—'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">Availabilities</span>
+                    <div className="text-sm capitalize text-zinc-200">
+                      {selected.availabilitiesType ?? 'flexible'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">Attendants</span>
+                    <div className="text-sm text-zinc-200">
+                      {selected.attendantsNumber ?? 1}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">Location</span>
+                    <div className="text-sm text-zinc-200">
+                      {selected.location ?? '—'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">Visibility</span>
+                    <div className="text-sm text-zinc-200">
+                      {selected.isPrivate ? 'Private' : 'Public'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">Service area</span>
+                    <div className="text-sm text-zinc-200">
+                      {selected.serviceAreaOnly ? 'Providers in area only' : '—'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs text-zinc-500">ID</span>
+                    <div className="font-mono text-xs text-zinc-500">{selected.id}</div>
+                  </div>
+                </div>
               </div>
-
-              {/* Description */}
-              {selected.description && (
-                <p className="text-sm leading-relaxed text-zinc-400">{selected.description}</p>
-              )}
-
-              {/* Fields */}
-              <dl className="divide-y divide-zinc-800 text-sm text-zinc-300">
-                {selected.categoryName && (
-                  <div className="flex justify-between gap-4 py-2.5">
-                    <dt className="text-zinc-500">Category</dt>
-                    <dd>{selected.categoryName}</dd>
-                  </div>
-                )}
-                <div className="flex justify-between gap-4 py-2.5">
-                  <dt className="text-zinc-500">Duration</dt>
-                  <dd>{selected.duration != null ? `${selected.duration} min` : '—'}</dd>
-                </div>
-                <div className="flex justify-between gap-4 py-2.5">
-                  <dt className="text-zinc-500">Price</dt>
-                  <dd>
-                    {selected.price != null
-                      ? `${selected.price}${selected.currency ? ` ${selected.currency}` : ''}`
-                      : '—'}
-                  </dd>
-                </div>
-                {selected.downPaymentType && selected.downPaymentType !== 'none' && (
-                  <div className="flex justify-between gap-4 py-2.5">
-                    <dt className="text-zinc-500">Down Payment</dt>
-                    <dd>
-                      {selected.downPaymentValue ?? '0'}
-                      {selected.downPaymentType === 'percent' ? '%' : ` ${selected.currency ?? ''}`}
-                      {' '}
-                      <span className="text-xs text-zinc-500">({selected.downPaymentType})</span>
-                    </dd>
-                  </div>
-                )}
-                <div className="flex justify-between gap-4 py-2.5">
-                  <dt className="text-zinc-500">Availabilities</dt>
-                  <dd className="capitalize">{selected.availabilitiesType ?? 'flexible'}</dd>
-                </div>
-                <div className="flex justify-between gap-4 py-2.5">
-                  <dt className="text-zinc-500">Attendants</dt>
-                  <dd>{selected.attendantsNumber ?? 1}</dd>
-                </div>
-                {selected.location && (
-                  <div className="flex justify-between gap-4 py-2.5">
-                    <dt className="text-zinc-500">Location</dt>
-                    <dd className="text-right">{selected.location}</dd>
-                  </div>
-                )}
-                <div className="flex justify-between gap-4 py-2.5">
-                  <dt className="text-zinc-500">Visibility</dt>
-                  <dd>{selected.isPrivate ? 'Private' : 'Public'}</dd>
-                </div>
-                {!!(selected.serviceAreaOnly) && (
-                  <div className="flex justify-between gap-4 py-2.5">
-                    <dt className="text-zinc-500">Service area</dt>
-                    <dd>Providers in area only</dd>
-                  </div>
-                )}
-                <div className="flex justify-between gap-4 py-2.5">
-                  <dt className="text-zinc-500">ID</dt>
-                  <dd className="font-mono text-xs text-zinc-400">{selected.id}</dd>
-                </div>
-              </dl>
             </div>
           ) : (
             <StaffRecordPlaceholder message="Select a service from the list." />
@@ -1237,33 +1244,39 @@ export function StaffServiceCategoriesPage() {
         }
         detail={
           selected ? (
-            <div className="mx-auto max-w-lg space-y-5">
-              <div className="flex items-start justify-between gap-4">
-                <h2 className="text-xl font-semibold text-zinc-50">{selected.name ?? '—'}</h2>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setModal('edit')}
-                    className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModal('delete')}
-                    className="rounded-lg border border-red-800/60 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-950/40"
-                  >
-                    Delete
-                  </button>
+            <div className="w-full space-y-6">
+              <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/30 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <h2 className="text-xl font-semibold text-zinc-50">{selected.name ?? '—'}</h2>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModal('edit')}
+                      className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-800"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModal('delete')}
+                      className="rounded-lg border border-red-800/60 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-950/40"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                {selected.description ? (
+                  <p className="text-sm leading-relaxed text-zinc-400">{selected.description}</p>
+                ) : (
+                  <p className="text-sm text-zinc-500">No description.</p>
+                )}
+
+                <div className="space-y-1">
+                  <span className="text-xs text-zinc-500">ID</span>
+                  <div className="font-mono text-xs text-zinc-500">{selected.id}</div>
                 </div>
               </div>
-
-              {selected.description ? (
-                <p className="text-sm leading-relaxed text-zinc-400">{selected.description}</p>
-              ) : (
-                <p className="text-sm text-zinc-500">No description.</p>
-              )}
-              <p className="font-mono text-xs text-zinc-600">ID: {selected.id}</p>
             </div>
           ) : (
             <StaffRecordPlaceholder message="Select a category from the list." />
@@ -1705,15 +1718,63 @@ type StaffAccountDto = {
   language: string | null;
 };
 
-export function StaffAccountPage() {
+const ACCOUNT_NAV = [
+  { path: 'profile', label: 'Profile', icon: UserCircle2 },
+  { path: 'working-hours', label: 'Working hours', icon: Calendar },
+  { path: 'integrations', label: 'Integrations', icon: Link2 },
+] as const;
+
+const accountNavLinkClass = ({ isActive }: { isActive: boolean }) =>
+  [
+    'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+    isActive
+      ? 'bg-zinc-800 text-zinc-50'
+      : 'text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100',
+  ].join(' ');
+
+export function StaffAccountLayout() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-zinc-50">Account</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          Manage your profile, working hours, and integrations.
+        </p>
+      </div>
+      <div className="flex flex-col gap-8 md:flex-row md:items-start">
+        <nav
+          className="w-full shrink-0 border-b border-zinc-800 pb-4 md:w-48 md:border-b-0 md:pb-0"
+          aria-label="Account sections"
+        >
+          <ul className="flex flex-col gap-0.5">
+            {ACCOUNT_NAV.map(({ path, label, icon: Icon }) => (
+              <li key={path}>
+                <NavLink to={`/staff/account/${path}`} className={accountNavLinkClass}>
+                  <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+                  <span className="min-w-0">{label}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="min-w-0 flex-1">
+          <Outlet />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const inputCls =
+  'w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2';
+
+export function StaffAccountProfileSection() {
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ['staff', 'account'],
     queryFn: () => apiJson<StaffAccountDto>('/api/staff/account'),
   });
 
-  const [workingPlan, setWorkingPlan] = useState('');
-  const [exceptions, setExceptions] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -1724,12 +1785,9 @@ export function StaffAccountPage() {
   const [zipCode, setZipCode] = useState('');
   const [timezone, setTimezone] = useState('');
   const [language, setLanguage] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!q.data) return;
-    setWorkingPlan(q.data.workingPlan ?? '{}');
-    setExceptions(q.data.workingPlanExceptions ?? '{}');
     setFirstName(q.data.firstName ?? '');
     setLastName(q.data.lastName ?? '');
     setEmail(q.data.email ?? '');
@@ -1742,216 +1800,197 @@ export function StaffAccountPage() {
     setLanguage(q.data.language ?? '');
   }, [q.data]);
 
-  const timezoneOptions = useMemo(
-    () => TIMEZONE_GROUPS.flatMap((g) => g.options),
-    [],
-  );
+  const timezoneOptions = useMemo(() => TIMEZONE_GROUPS.flatMap((g) => g.options), []);
 
   const save = useMutation({
-    mutationFn: (body: Record<string, string | null | undefined>) =>
-      apiJson('/api/staff/account', {
-        method: 'PATCH',
-        body: JSON.stringify(body),
-      }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['staff', 'account'] });
-      setFormError(null);
-    },
-    onError: (e) => {
-      setFormError(e instanceof Error ? e.message : 'Save failed');
-    },
+    mutationFn: (body: Record<string, string | null>) =>
+      apiJson('/api/staff/account', { method: 'PATCH', body: JSON.stringify(body) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['staff', 'account'] }),
   });
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setFormError(null);
-    if (exceptions.trim()) {
-      try {
-        JSON.parse(exceptions);
-      } catch {
-        setFormError('Working plan exceptions must be valid JSON (or empty).');
-        return;
-      }
-    }
-    try {
-      JSON.parse(workingPlan || '{}');
-    } catch {
-      setFormError('Working plan must be valid JSON.');
-      return;
-    }
-    save.mutate({
-      working_plan: workingPlan,
-      working_plan_exceptions: exceptions.trim() || null,
-      first_name: firstName || null,
-      last_name: lastName || null,
-      email: email || null,
-      phone_number: phoneNumber || null,
-      address: address || null,
-      city: city || null,
-      state: state || null,
-      zip_code: zipCode || null,
-      timezone: timezone || null,
-      language: language || null,
-    });
-  }
+  if (q.isPending) return <p className="text-sm text-zinc-500">Loading…</p>;
+  if (q.isError) return <p className="text-sm text-red-400">{(q.error as Error).message}</p>;
 
   return (
-    <MessageBlock title="Account">
-      <p className="text-sm text-zinc-500">
-        Profile, weekly availability, and exceptions — aligned with{' '}
-        <code className="text-zinc-600">ea_users</code> and{' '}
-        <code className="text-zinc-600">ea_user_settings</code> (PHP account / availability).
-      </p>
-      {q.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
-      {q.isError && <p className="text-sm text-red-400">{(q.error as Error).message}</p>}
-      {q.isSuccess && (
-        <form className="space-y-8" onSubmit={handleSubmit}>
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-zinc-300">Profile</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">First name</span>
-                <input
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">Last name</span>
-                <input
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-              <label className="block space-y-1 sm:col-span-2">
-                <span className="text-xs uppercase text-zinc-500">Email</span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">Phone</span>
-                <input
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-              <label className="block space-y-1 sm:col-span-2">
-                <span className="text-xs uppercase text-zinc-500">Address</span>
-                <input
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">City</span>
-                <input
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">State</span>
-                <input
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">ZIP</span>
-                <input
-                  value={zipCode}
-                  onChange={(e) => setZipCode(e.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">Timezone</span>
-                <select
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                >
-                  <option value="">— Default / browser —</option>
-                  {timezoneOptions.map((tz) => (
-                    <option key={tz} value={tz}>
-                      {tz}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-xs uppercase text-zinc-500">Language</span>
-                <input
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  placeholder="e.g. english"
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-            </div>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-zinc-300">Working hours</h2>
-            <p className="text-xs text-zinc-500">
-              Stored as JSON with <code className="text-zinc-600">breaks: []</code> per active day.
-              Edit breaks or advanced keys in your database if needed.
-            </p>
-            <StaffWorkingPlanEditor
-              workingPlanJson={workingPlan}
-              onWorkingPlanChange={setWorkingPlan}
-            />
-          </section>
-
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-zinc-300">Working plan exceptions</h2>
-            <p className="text-xs text-zinc-500">
-              JSON object for date-specific overrides (same format as PHP{' '}
-              <code className="text-zinc-600">working_plan_exceptions</code>).
-            </p>
-            <textarea
-              value={exceptions}
-              onChange={(e) => setExceptions(e.target.value)}
-              rows={6}
-              spellCheck={false}
-              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100"
-            />
-          </section>
-
-          {formError && (
-            <p className="text-sm text-red-400" role="alert">
-              {formError}
-            </p>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={save.isPending}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {save.isPending ? 'Saving…' : 'Save account'}
-            </button>
-            {save.isSuccess && !save.isPending && (
-              <p className="text-sm text-emerald-500">Saved.</p>
-            )}
-          </div>
-        </form>
-      )}
-
-      <GoogleCalendarSection />
-    </MessageBlock>
+    <form
+      className="max-w-xl space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({
+          first_name: firstName || null,
+          last_name: lastName || null,
+          email: email || null,
+          phone_number: phoneNumber || null,
+          address: address || null,
+          city: city || null,
+          state: state || null,
+          zip_code: zipCode || null,
+          timezone: timezone || null,
+          language: language || null,
+        });
+      }}
+    >
+      <h2 className="text-lg font-medium text-zinc-100">Profile</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block space-y-1">
+          <span className="text-xs uppercase text-zinc-500">First name</span>
+          <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs uppercase text-zinc-500">Last name</span>
+          <input value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputCls} />
+        </label>
+        <label className="block space-y-1 sm:col-span-2">
+          <span className="text-xs uppercase text-zinc-500">Email</span>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs uppercase text-zinc-500">Phone</span>
+          <input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={inputCls} />
+        </label>
+        <label className="block space-y-1 sm:col-span-2">
+          <span className="text-xs uppercase text-zinc-500">Address</span>
+          <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs uppercase text-zinc-500">City</span>
+          <input value={city} onChange={(e) => setCity(e.target.value)} className={inputCls} />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs uppercase text-zinc-500">State</span>
+          <input value={state} onChange={(e) => setState(e.target.value)} className={inputCls} />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs uppercase text-zinc-500">ZIP</span>
+          <input value={zipCode} onChange={(e) => setZipCode(e.target.value)} className={inputCls} />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs uppercase text-zinc-500">Timezone</span>
+          <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className={inputCls}>
+            <option value="">— Default / browser —</option>
+            {timezoneOptions.map((tz) => (
+              <option key={tz} value={tz}>{tz}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs uppercase text-zinc-500">Language</span>
+          <input
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            placeholder="e.g. english"
+            className={inputCls}
+          />
+        </label>
+      </div>
+      <div className="flex items-center gap-3 pt-1">
+        <button
+          type="submit"
+          disabled={save.isPending}
+          className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+        >
+          {save.isPending ? 'Saving…' : 'Save'}
+        </button>
+        {save.isError && <p className="text-sm text-red-400">{(save.error as Error).message}</p>}
+        {save.isSuccess && !save.isPending && <p className="text-sm text-emerald-500">Saved.</p>}
+      </div>
+    </form>
   );
+}
+
+export function StaffAccountWorkingHoursSection() {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ['staff', 'account'],
+    queryFn: () => apiJson<StaffAccountDto>('/api/staff/account'),
+  });
+
+  const [workingPlan, setWorkingPlan] = useState('{}');
+  const [exceptions, setExceptions] = useState('{}');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!q.data) return;
+    setWorkingPlan(q.data.workingPlan ?? '{}');
+    setExceptions(q.data.workingPlanExceptions ?? '{}');
+  }, [q.data]);
+
+  const save = useMutation({
+    mutationFn: (body: Record<string, string | null>) =>
+      apiJson('/api/staff/account', { method: 'PATCH', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      setFormError(null);
+      void qc.invalidateQueries({ queryKey: ['staff', 'account'] });
+    },
+    onError: (e) => setFormError(e instanceof Error ? e.message : 'Save failed'),
+  });
+
+  if (q.isPending) return <p className="text-sm text-zinc-500">Loading…</p>;
+  if (q.isError) return <p className="text-sm text-red-400">{(q.error as Error).message}</p>;
+
+  return (
+    <form
+      className="max-w-xl space-y-6"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setFormError(null);
+        try { JSON.parse(workingPlan || '{}'); } catch { setFormError('Working plan must be valid JSON.'); return; }
+        if (exceptions.trim()) {
+          try { JSON.parse(exceptions); } catch { setFormError('Exceptions must be valid JSON (or empty).'); return; }
+        }
+        save.mutate({
+          working_plan: workingPlan,
+          working_plan_exceptions: exceptions.trim() || null,
+        });
+      }}
+    >
+      <div className="space-y-3">
+        <h2 className="text-lg font-medium text-zinc-100">Working hours</h2>
+        <p className="text-xs text-zinc-500">
+          Set your weekly availability. Each active day supports break windows.
+        </p>
+        <StaffWorkingPlanEditor workingPlanJson={workingPlan} onWorkingPlanChange={setWorkingPlan} />
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium text-zinc-300">Exceptions</h3>
+        <p className="text-xs text-zinc-500">
+          JSON object for date-specific overrides (same format as <code className="text-zinc-600">working_plan_exceptions</code>).
+        </p>
+        <textarea
+          value={exceptions}
+          onChange={(e) => setExceptions(e.target.value)}
+          rows={6}
+          spellCheck={false}
+          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
+        />
+      </div>
+      {formError && <p className="text-sm text-red-400" role="alert">{formError}</p>}
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={save.isPending}
+          className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+        >
+          {save.isPending ? 'Saving…' : 'Save'}
+        </button>
+        {save.isSuccess && !save.isPending && <p className="text-sm text-emerald-500">Saved.</p>}
+      </div>
+    </form>
+  );
+}
+
+export function StaffAccountIntegrationsSection() {
+  return (
+    <div className="max-w-xl space-y-4">
+      <h2 className="text-lg font-medium text-zinc-100">Integrations</h2>
+      <GoogleCalendarSection />
+    </div>
+  );
+}
+
+/** @deprecated Use StaffAccountLayout + section routes instead */
+export function StaffAccountPage() {
+  return null;
 }
 
 function GoogleCalendarSection() {

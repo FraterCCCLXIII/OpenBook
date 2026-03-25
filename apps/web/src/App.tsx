@@ -33,7 +33,10 @@ import {
   StaffSecretariesPage,
   StaffServiceCategoriesPage,
   StaffServicesPage,
-  StaffAccountPage,
+  StaffAccountLayout,
+  StaffAccountProfileSection,
+  StaffAccountWorkingHoursSection,
+  StaffAccountIntegrationsSection,
 } from './pages/staff/staffPages';
 
 // Heavy pages — code-split to reduce initial bundle size
@@ -140,7 +143,12 @@ export default function App() {
               <Route path="webhooks" element={<StaffWebhooksPage />} />
               <Route path=":section" element={<StaffSettingsSectionPage />} />
             </Route>
-            <Route path="/staff/account" element={<StaffAccountPage />} />
+            <Route path="/staff/account" element={<StaffAccountLayout />}>
+              <Route index element={<Navigate to="profile" replace />} />
+              <Route path="profile" element={<StaffAccountProfileSection />} />
+              <Route path="working-hours" element={<StaffAccountWorkingHoursSection />} />
+              <Route path="integrations" element={<StaffAccountIntegrationsSection />} />
+            </Route>
             <Route path="/staff/provider/bookings/:id" element={<StaffProviderBookingDetailPage />} />
             <Route path="/staff/provider/bookings" element={<StaffProviderBookingsPage />} />
           </Route>

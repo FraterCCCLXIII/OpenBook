@@ -85,7 +85,7 @@ function SidebarUserMenu({ collapsed }: { collapsed: boolean }) {
   const displayName = [staff.firstName, staff.lastName].filter(Boolean).join(' ') || staff.email || 'Account';
 
   return (
-    <div ref={ref} className="relative px-2 pb-2">
+    <div ref={ref} className="relative pb-2">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -254,7 +254,7 @@ export function StaffSidebar() {
 
       <nav
         id="staff-sidebar-nav"
-        className="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-2"
+        className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2"
       >
         <SidebarNavLink
           to="/staff/dashboard"
@@ -352,10 +352,10 @@ export function StaffSidebar() {
             />
           </div>
         )}
-        <div className="mt-auto border-t border-zinc-800 pt-2">
-          <SidebarUserMenu collapsed={collapsed} />
-        </div>
       </nav>
+      <div className="border-t border-zinc-800 p-2">
+        <SidebarUserMenu collapsed={collapsed} />
+      </div>
     </aside>
   );
 }
