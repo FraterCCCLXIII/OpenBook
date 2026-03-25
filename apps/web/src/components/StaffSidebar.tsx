@@ -1,18 +1,20 @@
-import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 import {
   BookOpen,
   Briefcase,
   Calendar,
-  CalendarDays,
+  ChevronDown,
   CreditCard,
+  ExternalLink,
   LayoutDashboard,
   List,
   LogOut,
   PanelLeft,
   ScrollText,
+  Settings,
   ShieldCheck,
   Stethoscope,
   Tags,
@@ -59,9 +61,114 @@ function SidebarNavLink({
   );
 }
 
-export function StaffSidebar() {
+function SidebarUserMenu({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  if (!user || user.kind !== 'staff') return null;
+  const staff = user;
+
+  const displayName = [staff.firstName, staff.lastName].filter(Boolean).join(' ') || staff.email || 'Account';
+
+  return (
+    <div ref={ref} className="relative px-2 pb-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={collapsed ? displayName : undefined}
+        aria-label={displayName}
+        aria-expanded={open}
+        className={[
+          'flex w-full items-center rounded-lg py-2 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800/70 hover:text-zinc-100',
+          collapsed ? 'justify-center px-2' : 'gap-2 px-3',
+        ].join(' ')}
+      >
+        <User className="h-4 w-4 shrink-0" aria-hidden />
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1 truncate text-left">{displayName}</span>
+            <ChevronDown
+              className={['h-3.5 w-3.5 shrink-0 transition-transform', open ? 'rotate-180' : ''].join(' ')}
+              aria-hidden
+            />
+          </>
+        )}
+      </button>
+
+      {open && (
+        <div
+          className={[
+            'absolute z-50 mb-2 w-56 rounded-xl border border-zinc-700 bg-zinc-900 p-1.5 shadow-xl',
+            collapsed
+              ? 'bottom-0 left-[calc(100%+0.5rem)]'
+              : 'bottom-full left-0 right-0',
+          ].join(' ')}
+          role="menu"
+        >
+          {canViewStaff(staff, 'system_settings') && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => { setOpen(false); navigate('/staff/settings'); }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+            >
+              <Settings className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+              {t('admin_settings')}
+            </button>
+          )}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); navigate('/staff/account'); }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          >
+            <User className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+            {t('account')}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); navigate('/book'); }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          >
+            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+            {t('go_to_booking_page')}
+          </button>
+
+          <div className="my-1 border-t border-zinc-800" />
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); void logout(); }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-zinc-800 hover:text-red-300"
+          >
+            <LogOut className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {t('log_out')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function StaffSidebar() {
+  const { t } = useTranslation();
+  const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY) === '1';
@@ -246,47 +353,7 @@ export function StaffSidebar() {
           </div>
         )}
         <div className="mt-auto border-t border-zinc-800 pt-2">
-          {canViewStaff(staff, 'system_settings') && (
-            <SidebarNavLink
-              to="/staff/webhooks"
-              collapsed={collapsed}
-              label="Webhooks"
-              icon={ScrollText}
-            />
-          )}
-          {canViewStaff(staff, 'system_settings') && (
-            <SidebarNavLink
-              to="/staff/settings"
-              collapsed={collapsed}
-              label={t('admin_settings')}
-              icon={CalendarDays}
-            />
-          )}
-          <SidebarNavLink
-            to="/staff/account"
-            collapsed={collapsed}
-            label={t('account')}
-            icon={User}
-          />
-          <SidebarNavLink
-            to="/book"
-            collapsed={collapsed}
-            label={t('go_to_booking_page')}
-            icon={Calendar}
-          />
-          <button
-            type="button"
-            title={collapsed ? t('log_out') : undefined}
-            aria-label={t('log_out')}
-            className={[
-              'flex w-full items-center rounded-lg py-2 text-left text-sm text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100',
-              collapsed ? 'justify-center px-2' : 'gap-2 px-3',
-            ].join(' ')}
-            onClick={() => void logout()}
-          >
-            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
-            {!collapsed && t('log_out')}
-          </button>
+          <SidebarUserMenu collapsed={collapsed} />
         </div>
       </nav>
     </aside>

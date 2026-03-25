@@ -124,7 +124,7 @@ export default function App() {
             </Route>
             <Route path="/staff/secretaries" element={<StaffSecretariesPage />} />
             <Route path="/staff/admins" element={<StaffAdminsPage />} />
-            <Route path="/staff/webhooks" element={<StaffWebhooksPage />} />
+            <Route path="/staff/webhooks" element={<Navigate to="/staff/settings/webhooks" replace />} />
             {/* Legacy redirects so old bookmarks still work */}
             <Route path="/staff/forms" element={<Navigate to="/staff/settings/forms" replace />} />
             <Route path="/staff/custom-fields" element={<Navigate to="/staff/settings/custom-fields" replace />} />
@@ -137,6 +137,7 @@ export default function App() {
               <Route path="custom-fields" element={<StaffCustomFieldsPage />} />
               <Route path="tools" element={<StaffToolsPage />} />
               <Route path="consents" element={<StaffConsentsReportPage />} />
+              <Route path="webhooks" element={<StaffWebhooksPage />} />
               <Route path=":section" element={<StaffSettingsSectionPage />} />
             </Route>
             <Route path="/staff/account" element={<StaffAccountPage />} />

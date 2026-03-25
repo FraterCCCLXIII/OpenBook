@@ -17,6 +17,7 @@ import {
   Settings,
   Shield,
   UserCircle,
+  Webhook,
   Wrench,
 } from 'lucide-react';
 import { apiJson } from '../../../lib/api';
@@ -43,6 +44,7 @@ const NAV: { path: string; label: string; icon: LucideIcon; exact?: boolean }[] 
   { path: 'stripe', label: 'Stripe', icon: CreditCard },
   { path: 'api', label: 'API', icon: KeyRound },
   { path: 'ldap', label: 'LDAP', icon: Shield },
+  { path: 'webhooks', label: 'Webhooks', icon: Webhook },
 ];
 
 const settingsNavLinkClass = ({ isActive }: { isActive: boolean }) =>
