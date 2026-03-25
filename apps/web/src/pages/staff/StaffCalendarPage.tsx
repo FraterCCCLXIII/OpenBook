@@ -600,9 +600,9 @@ export function StaffCalendarPage() {
   const endISO = new Date(Date.now() + 60 * 60_000).toISOString();
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-1 flex-col gap-3 min-h-0">
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold text-zinc-50">{t('calendar')}</h1>
           <FilterDropdown
@@ -640,11 +640,11 @@ export function StaffCalendarPage() {
       </div>
 
       {q.isError && (
-        <p className="text-sm text-red-400">{(q.error as Error).message}</p>
+        <p className="flex-shrink-0 text-sm text-red-400">{(q.error as Error).message}</p>
       )}
 
-      {/* FullCalendar */}
-      <div className="staff-calendar overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 p-2 text-zinc-100 [&_.fc-button-active]:!bg-zinc-600 [&_.fc-button]:!border-zinc-600 [&_.fc-button]:!bg-zinc-800 [&_.fc-button]:!text-zinc-200 [&_.fc-button]:hover:!bg-zinc-700 [&_.fc-col-header-cell-cushion]:text-zinc-300 [&_.fc-daygrid-day-number]:text-zinc-400 [&_.fc-list-event-title]:text-zinc-200 [&_.fc-list-sticky]:bg-zinc-900 [&_.fc-scrollgrid]:border-zinc-800 [&_.fc-timegrid-axis]:text-zinc-500 [&_.fc-timegrid-slot-label-cushion]:text-zinc-500 [&_.fc-toolbar-title]:text-zinc-100">
+      {/* FullCalendar — fills remaining viewport height */}
+      <div className="staff-calendar min-h-0 flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 p-2">
         <FullCalendar
           ref={calRef}
           plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
@@ -658,7 +658,7 @@ export function StaffCalendarPage() {
           select={onSelect}
           eventClick={onEventClick}
           events={events}
-          height="auto"
+          height="100%"
           datesSet={onDatesSet}
           editable
           eventDrop={onEventDrop}
