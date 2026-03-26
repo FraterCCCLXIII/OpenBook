@@ -179,6 +179,45 @@ function displayToMb(num: string, unit: 'MB' | 'GB'): string {
   return unit === 'GB' ? String(n * 1024) : String(n);
 }
 
+/** 0/1 settings stored as strings — use toggle instead of a dropdown. */
+function isBinaryZeroOneSelect(field: FieldDef): boolean {
+  if (field.type !== 'select' || !field.options || field.options.length !== 2) {
+    return false;
+  }
+  const vals = new Set(field.options.map((o) => o.value));
+  return vals.size === 2 && vals.has('0') && vals.has('1');
+}
+
+function BinarySettingsToggle({
+  checked,
+  onChange,
+  id,
+  labelledBy,
+}: {
+  checked: boolean;
+  onChange: (next: '0' | '1') => void;
+  id: string;
+  labelledBy: string;
+}) {
+  return (
+    <div className="shrink-0">
+      <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-labelledby={labelledBy}
+        onClick={() => onChange(checked ? '0' : '1')}
+        className={`relative inline-flex h-6 w-11 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${checked ? 'bg-emerald-600' : 'bg-zinc-700'}`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`}
+        />
+      </button>
+    </div>
+  );
+}
+
 function FileSizeInput({
   valueMb,
   onChange,
@@ -636,7 +675,36 @@ function SectionFormInner({
           )}
         </div>
       )}
-      {fields.map((field) => (
+      {fields.map((field) => {
+        if (isBinaryZeroOneSelect(field)) {
+          const raw = values[field.key] ?? '';
+          const isOn = raw === '1';
+          const labelId = `staff-setting-label-${field.key}`;
+          return (
+            <div
+              key={field.key}
+              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            >
+              <div className="min-w-0 flex-1 space-y-1">
+                <div id={labelId} className="text-xs uppercase text-zinc-500">
+                  {field.label}
+                </div>
+                {field.hint && (
+                  <span className="block text-xs font-normal normal-case text-zinc-600">
+                    {field.hint}
+                  </span>
+                )}
+              </div>
+              <BinarySettingsToggle
+                id={`staff-setting-${field.key}`}
+                labelledBy={labelId}
+                checked={isOn}
+                onChange={(v) => setValues((prev) => ({ ...prev, [field.key]: v }))}
+              />
+            </div>
+          );
+        }
+        return (
         <label key={field.key} className="block space-y-1">
           <span className="text-xs uppercase text-zinc-500">{field.label}</span>
           {field.hint && <span className="block text-xs font-normal normal-case text-zinc-600">{field.hint}</span>}
@@ -805,7 +873,8 @@ function SectionFormInner({
             />
           )}
         </label>
-      ))}
+        );
+      })}
 
       {section === 'email-notifications' && fields.length > 0 && (
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 space-y-3">
