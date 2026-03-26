@@ -164,7 +164,7 @@ async function handleBookingConfirmation(appointmentId: string): Promise<void> {
   ]);
 
   try {
-    await sendBookingConfirmation({
+    await sendBookingConfirmation(prisma, {
       companyName,
       companyLogoEmailPng: emailLogoSetting?.value ?? null,
       companyLogo: companyLogoSetting?.value ?? null,

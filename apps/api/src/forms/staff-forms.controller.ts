@@ -20,6 +20,7 @@ import {
 import { can, canView } from '../auth/permissions.ea';
 import { FormsService, type CreateFormInput } from './forms.service';
 import { sendFormReminderEmail } from '../jobs/email.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 
 @Controller('staff/forms')
@@ -28,6 +29,7 @@ export class StaffFormsController {
   constructor(
     private readonly forms: FormsService,
     private readonly settings: SettingsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
@@ -117,6 +119,7 @@ export class StaffFormsController {
     ]);
 
     await sendFormReminderEmail(
+      this.prisma,
       user.email,
       recipientName,
       incomplete.map((f) => ({ name: f.name, description: f.description })),

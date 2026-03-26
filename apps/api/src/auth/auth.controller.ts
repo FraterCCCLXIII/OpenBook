@@ -14,6 +14,7 @@ import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { CustomerOtpService } from './customer-otp.service';
 import { sendOtpCode } from '../jobs/email.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { readAuthToken } from './read-auth-token';
 import {
@@ -27,6 +28,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly otp: CustomerOtpService,
     private readonly settings: SettingsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   private async assertCustomerPortalEnabled(): Promise<void> {
@@ -147,7 +149,7 @@ export class AuthController {
       this.settings.getSettingByName('company_logo'),
     ]);
     // Always send via Mailpit (dev) or real SMTP (prod). Return code only in dev for test convenience.
-    await sendOtpCode(email, code, 5, {
+    await sendOtpCode(this.prisma, email, code, 5, {
       companyName: companyName ?? 'OpenBook',
       logoDataUrl: logoPng,
       companyLogoDataUrl: companyLogo,

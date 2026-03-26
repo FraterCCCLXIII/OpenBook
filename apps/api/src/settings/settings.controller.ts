@@ -15,6 +15,8 @@ import {
   type RequestWithStaff,
 } from '../auth/staff-auth.guard';
 import { can, canView } from '../auth/permissions.ea';
+import { PrismaService } from '../prisma/prisma.service';
+import { getMailTransportAndFrom } from '../jobs/email-transport';
 import { SettingsService } from './settings.service';
 import { SETTINGS_SECTION_SCHEMAS } from '@openbook/shared';
 
@@ -33,10 +35,15 @@ export class SettingsController {
   }
 }
 
+const SIMPLE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 @Controller('staff/settings')
 @UseGuards(StaffAuthGuard)
 export class StaffSettingsController {
-  constructor(private readonly settings: SettingsService) {}
+  constructor(
+    private readonly settings: SettingsService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get()
   list(@Req() req: RequestWithStaff) {
@@ -127,4 +134,55 @@ export class StaffSettingsController {
     }
     return this.settings.applyCompanyWorkingPlanToAllProviders();
   }
+
+  /** Send a test message using SMTP + From from saved settings (and env fallbacks). Save the form first if you changed SMTP. */
+  @Post('test-email')
+  async sendTestEmail(
+    @Req() req: RequestWithStaff,
+    @Body() body: { to?: string },
+  ) {
+    if (!can(req.staffUser.permissions, 'system_settings', 'edit')) {
+      throw new ForbiddenException();
+    }
+    let recipient = body.to?.trim() ?? '';
+    if (!recipient) {
+      const uid = BigInt(req.staffUser.userId);
+      const user = await this.prisma.user.findUnique({
+        where: { id: uid },
+        select: { email: true },
+      });
+      recipient = user?.email?.trim() ?? '';
+    }
+    if (!recipient || !SIMPLE_EMAIL_RE.test(recipient)) {
+      throw new BadRequestException(
+        'Enter a valid recipient address, or save your email on your staff profile.',
+      );
+    }
+    const companyName =
+      (await this.settings.getSettingByName('company_name'))?.trim() ||
+      'OpenBook';
+    const { transport, from } = await getMailTransportAndFrom(
+      this.prisma,
+      companyName,
+    );
+    await transport.sendMail({
+      from,
+      to: recipient,
+      subject: `${companyName}: test email`,
+      text:
+        'This is a test message from OpenBook. If you received this, SMTP is configured correctly.',
+      html: `<p>This is a test message from <strong>${escapeHtml(
+        companyName,
+      )}</strong>.</p><p>If you received this, SMTP is configured correctly.</p>`,
+    });
+    return { ok: true as const, sentTo: recipient };
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

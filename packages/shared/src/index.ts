@@ -142,7 +142,11 @@ export type LdapSettings = z.infer<typeof ldapSettingsSchema>;
 export const emailNotificationsSettingsSchema = z.object({
   email_notifications: z.enum(['0', '1']).optional(),
   smtp_host: z.string().optional(),
-  smtp_port: z.coerce.number().int().min(1).max(65535).optional(),
+  /** Empty string from the form must not coerce to 0 (invalid port). */
+  smtp_port: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    z.coerce.number().int().min(1).max(65535).optional(),
+  ),
   smtp_encryption: z.enum(['none', 'tls', 'ssl']).optional(),
   smtp_username: z.string().optional(),
   smtp_password: z.string().optional(),

@@ -580,6 +580,18 @@ function SectionFormInner({
       }),
   });
 
+  const [testEmailTo, setTestEmailTo] = useState('');
+
+  const testEmailMut = useMutation({
+    mutationFn: () =>
+      apiJson<{ ok: boolean; sentTo: string }>('/api/staff/settings/test-email', {
+        method: 'POST',
+        body: JSON.stringify({
+          to: testEmailTo.trim() || undefined,
+        }),
+      }),
+  });
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const payload =
@@ -794,6 +806,41 @@ function SectionFormInner({
           )}
         </label>
       ))}
+
+      {section === 'email-notifications' && fields.length > 0 && (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 space-y-3">
+          <p className="text-xs text-zinc-500">
+            Sends using saved SMTP settings (and server env fallbacks). Save first if you changed host, port, or credentials.
+          </p>
+          <label className="block space-y-1">
+            <span className="text-xs uppercase text-zinc-500">Send test to</span>
+            <input
+              type="email"
+              value={testEmailTo}
+              onChange={(e) => setTestEmailTo(e.target.value)}
+              placeholder="Leave blank to use your staff profile email"
+              autoComplete="email"
+              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={testEmailMut.isPending}
+            onClick={() => testEmailMut.mutate()}
+            className="rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+          >
+            {testEmailMut.isPending ? 'Sending…' : 'Send test email'}
+          </button>
+          {testEmailMut.isSuccess && (
+            <p className="text-sm text-emerald-500">
+              Sent to {testEmailMut.data.sentTo}.
+            </p>
+          )}
+          {testEmailMut.isError && (
+            <p className="text-sm text-red-400">{(testEmailMut.error as Error).message}</p>
+          )}
+        </div>
+      )}
 
       {fields.length === 0 && (
         <p className="text-sm text-zinc-500">No configurable fields for this section yet.</p>

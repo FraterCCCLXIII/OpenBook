@@ -1,30 +1,11 @@
 /**
- * Thin email sender used by the BullMQ worker (runs outside NestJS DI).
- * Reads SMTP config from env; default port 1025 (set SMTP_PORT for docker-compose Mailpit, e.g. 1027).
- * Templates are file-based HTML with {{VARIABLE}} placeholders.
+ * Email sender for the API and BullMQ worker.
+ * SMTP + From: DB (`ea_settings`) via `getMailTransportAndFrom`, then env, then Mailpit defaults.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import nodemailer from 'nodemailer';
-import type { Transporter } from 'nodemailer';
-
-let _transporter: Transporter | null = null;
-
-function getTransporter(): Transporter {
-  if (_transporter) return _transporter;
-  const host = process.env.SMTP_HOST ?? 'localhost';
-  const port = Number(process.env.SMTP_PORT ?? 1025);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  _transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: user && pass ? { user, pass } : undefined,
-  });
-  return _transporter;
-}
+import type { PrismaClient } from '@prisma/client';
+import { getMailTransportAndFrom } from './email-transport';
 
 // ─── Template cache ──────────────────────────────────────────────────────────
 
@@ -158,19 +139,20 @@ export type EmailBranding = {
 // ─── OTP email ───────────────────────────────────────────────────────────────
 
 export async function sendOtpCode(
+  prisma: PrismaClient,
   email: string,
   code: string,
   expiryMinutes = 5,
   branding?: EmailBranding,
 ): Promise<void> {
-  const t = getTransporter();
   const company = branding?.companyName?.trim() || 'OpenBook';
+  const { transport: t, from } = await getMailTransportAndFrom(prisma, company);
   const headerBlock = buildEmailHeaderBlock(company, {
     emailPng: branding?.logoDataUrl,
     companyLogo: branding?.companyLogoDataUrl,
   });
   await t.sendMail({
-    from: `"${company}" <noreply@openbook.local>`,
+    from,
     to: email,
     subject: 'Your verification code',
     html: `
@@ -198,10 +180,13 @@ export async function sendOtpCode(
 // ─── Booking confirmation email ───────────────────────────────────────────────
 
 export async function sendBookingConfirmation(
+  prisma: PrismaClient,
   data: BookingEmailData,
 ): Promise<void> {
-  const from = `"${data.companyName}" <noreply@openbook.local>`;
-  const t = getTransporter();
+  const { transport: t, from } = await getMailTransportAndFrom(
+    prisma,
+    data.companyName,
+  );
 
   const vars: Record<string, string> = {
     COMPANY_NAME: data.companyName,
@@ -241,14 +226,14 @@ export async function sendBookingConfirmation(
 // ─── Form reminder email ──────────────────────────────────────────────────────
 
 export async function sendFormReminderEmail(
+  prisma: PrismaClient,
   recipientEmail: string,
   recipientName: string,
   forms: { name: string; description: string | null }[],
   branding?: EmailBranding,
 ): Promise<void> {
-  const t = getTransporter();
   const company = branding?.companyName?.trim() || 'OpenBook';
-  const from = `"${company}" <noreply@openbook.local>`;
+  const { transport: t, from } = await getMailTransportAndFrom(prisma, company);
   const headerBlock = buildEmailHeaderBlock(company, {
     emailPng: branding?.logoDataUrl,
     companyLogo: branding?.companyLogoDataUrl,
