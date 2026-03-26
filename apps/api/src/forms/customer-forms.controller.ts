@@ -20,8 +20,11 @@ export class CustomerFormsController {
   constructor(private readonly forms: FormsService) {}
 
   @Get()
-  async list() {
-    const items = await this.forms.getFormsForCustomer('customer');
+  async list(@Req() req: RequestWithCustomer) {
+    const items = await this.forms.getFormsForRoleWithStatus(
+      'customer',
+      BigInt(req.customerUser.customerId),
+    );
     return { items };
   }
 

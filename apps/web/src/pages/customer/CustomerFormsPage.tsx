@@ -5,7 +5,12 @@ import { ChevronRight, FileText } from 'lucide-react';
 import { apiJson } from '../../lib/api';
 import { Card } from '../../components/ui';
 
-type FormListItem = { id: number; name: string; description: string | null };
+type FormListItem = {
+  id: number;
+  name: string;
+  description: string | null;
+  submission: { submittedAt: string } | null;
+};
 
 export function CustomerFormsPage() {
   const { t } = useTranslation();
@@ -65,10 +70,21 @@ export function CustomerFormsPage() {
                     )}
                   </div>
                 </div>
-                <ChevronRight
-                  className="h-4 w-4 shrink-0 text-slate-300"
-                  aria-hidden="true"
-                />
+                <div className="flex items-center gap-3">
+                  {f.submission ? (
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                      Complete
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                      Incomplete
+                    </span>
+                  )}
+                  <ChevronRight
+                    className="h-4 w-4 shrink-0 text-slate-300"
+                    aria-hidden="true"
+                  />
+                </div>
               </Link>
             </li>
           ))}

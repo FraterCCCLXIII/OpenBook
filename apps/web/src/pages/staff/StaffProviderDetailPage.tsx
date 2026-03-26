@@ -14,6 +14,7 @@ import {
 import { apiJson } from '../../lib/api';
 import { StaffWorkingPlanEditor } from '../../components/staff/StaffWorkingPlanEditor';
 import { StaffFilesTab } from '../../components/staff/StaffFilesTab';
+import { StaffRoleFormsTab } from '../../components/staff/StaffRoleFormsTab';
 import { TIMEZONE_GROUPS } from '../../lib/timezones';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -386,7 +387,7 @@ export function StaffProviderDetailPage() {
       {/* Forms tab */}
       {activeTab === 'forms' && (
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5">
-          <p className="text-sm text-zinc-500">Forms coming soon.</p>
+          <StaffRoleFormsTab roleSlug="provider" userId={id} />
         </div>
       )}
 

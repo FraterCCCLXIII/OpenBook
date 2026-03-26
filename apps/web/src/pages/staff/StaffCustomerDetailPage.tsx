@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { apiJson } from '../../lib/api';
 import { csrfHeaders, ensureCsrfToken } from '../../lib/csrf';
+import { StaffRoleFormsTab } from '../../components/staff/StaffRoleFormsTab';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -67,12 +68,6 @@ type BillingRow = {
   appointmentId: string;
 };
 
-type FormRow = {
-  id: number;
-  name: string;
-  completed: boolean;
-  submittedAt: string | null;
-};
 
 type FileRow = {
   id: string;
@@ -415,61 +410,6 @@ function AlertsTab({
   );
 }
 
-function FormsTab({ customerId }: { customerId: string }) {
-  const q = useQuery({
-    queryKey: ['staff', 'customers', customerId, 'forms'],
-    queryFn: () =>
-      apiJson<{ items: FormRow[] }>(
-        `/api/staff/customers/${encodeURIComponent(customerId)}/forms`,
-      ),
-  });
-
-  if (q.isPending) return <p className="text-sm text-zinc-500">Loading…</p>;
-  if (q.isError)
-    return <p className="text-sm text-red-400">{(q.error as Error).message}</p>;
-
-  const items = q.data.items;
-
-  if (items.length === 0)
-    return (
-      <p className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-8 text-center text-sm text-zinc-500">
-        No forms assigned to customers yet.
-      </p>
-    );
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-zinc-800">
-      <table className="w-full text-left text-sm">
-        <thead className="border-b border-zinc-800 bg-zinc-900/60 text-xs uppercase text-zinc-500">
-          <tr>
-            <th className="px-4 py-2.5">Form</th>
-            <th className="px-4 py-2.5">Status</th>
-            <th className="px-4 py-2.5">Submitted</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-800/60">
-          {items.map((f) => (
-            <tr key={f.id} className="bg-zinc-900/20 hover:bg-zinc-900/50">
-              <td className="px-4 py-2.5 font-medium text-zinc-100">{f.name}</td>
-              <td className="px-4 py-2.5">
-                {f.completed ? (
-                  <span className="inline-flex rounded-full bg-emerald-900/40 px-2.5 py-0.5 text-xs font-medium text-emerald-400">
-                    Complete
-                  </span>
-                ) : (
-                  <span className="inline-flex rounded-full bg-amber-900/40 px-2.5 py-0.5 text-xs font-medium text-amber-400">
-                    Not complete
-                  </span>
-                )}
-              </td>
-              <td className="px-4 py-2.5 text-zinc-400">{fmt(f.submittedAt)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 function FilesTab({
   customerId,
@@ -947,7 +887,9 @@ export function StaffCustomerDetailPage() {
           addPending={addAlert.isPending}
         />
       )}
-      {activeTab === 'forms' && <FormsTab customerId={customer.id} />}
+      {activeTab === 'forms' && (
+        <StaffRoleFormsTab roleSlug="customer" userId={customer.id} />
+      )}
       {activeTab === 'files' && (
         <FilesTab
           customerId={customer.id}

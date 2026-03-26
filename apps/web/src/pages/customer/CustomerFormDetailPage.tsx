@@ -5,6 +5,9 @@ import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { apiJson } from '../../lib/api';
 import { Button, Card, FormField, Input } from '../../components/ui';
 
+const readonlyValueCls =
+  'block w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-700';
+
 type FormField = {
   id: number;
   label: string;
@@ -78,6 +81,14 @@ export function CustomerFormDetailPage() {
 
   if (alreadySubmitted) {
     const sub = submissionQ.data.submission!;
+    const sortedFields = form.fields.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+
+    function readValue(fieldId: number): string {
+      const v = sub.answers[fieldId];
+      if (Array.isArray(v)) return v.join(', ');
+      return v != null && v !== '' ? String(v) : '—';
+    }
+
     return (
       <div className="mx-auto max-w-xl space-y-6">
         <button
@@ -88,6 +99,8 @@ export function CustomerFormDetailPage() {
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to forms
         </button>
+
+        {/* Completion banner */}
         <Card>
           <div className="flex items-start gap-4">
             <CheckCircle className="mt-0.5 h-6 w-6 shrink-0 text-brand" aria-hidden="true" />
@@ -105,6 +118,70 @@ export function CustomerFormDetailPage() {
                 .
               </p>
             </div>
+          </div>
+        </Card>
+
+        {/* Read-only answers */}
+        <Card>
+          <div className="space-y-5">
+            {sortedFields.map((field) => {
+              if (field.fieldType === 'textblock') {
+                return (
+                  <div
+                    key={field.id}
+                    className="richtext"
+                    dangerouslySetInnerHTML={{ __html: field.label }}
+                  />
+                );
+              }
+
+              const raw = sub.answers[field.id];
+              const checkedValues: string[] = Array.isArray(raw) ? raw : [];
+
+              return (
+                <FormField key={field.id} label={field.label} htmlFor={`ro-${field.id}`}>
+                  {field.fieldType === 'checkboxes' ? (
+                    <div className="space-y-1.5">
+                      {field.options.map((opt) => (
+                        <label
+                          key={opt}
+                          className="flex items-center gap-2.5 text-sm text-slate-600"
+                        >
+                          <input
+                            type="checkbox"
+                            readOnly
+                            checked={checkedValues.includes(opt)}
+                            className="h-4 w-4 accent-brand"
+                          />
+                          {opt}
+                        </label>
+                      ))}
+                    </div>
+                  ) : field.fieldType === 'radio' ? (
+                    <div className="space-y-1.5">
+                      {field.options.map((opt) => (
+                        <label
+                          key={opt}
+                          className="flex items-center gap-2.5 text-sm text-slate-600"
+                        >
+                          <input
+                            type="radio"
+                            readOnly
+                            checked={String(raw) === opt}
+                            className="h-4 w-4 accent-brand"
+                          />
+                          {opt}
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div id={`ro-${field.id}`} className={readonlyValueCls}>
+                      {readValue(field.id)}
+                    </div>
+                  )}
+                </FormField>
+              );
+            })}
           </div>
         </Card>
       </div>
@@ -169,7 +246,17 @@ export function CustomerFormDetailPage() {
           {form.fields
             .slice()
             .sort((a, b) => a.sortOrder - b.sortOrder)
-            .map((field) => (
+            .map((field) => {
+              if (field.fieldType === 'textblock') {
+                return (
+                  <div
+                    key={field.id}
+                    className="richtext"
+                    dangerouslySetInnerHTML={{ __html: field.label }}
+                  />
+                );
+              }
+              return (
               <FormField
                 key={field.id}
                 label={field.label}
@@ -270,7 +357,8 @@ export function CustomerFormDetailPage() {
                   </div>
                 )}
               </FormField>
-            ))}
+              );
+            })}
 
           {submitMutation.isError && (
             <p className="text-sm text-red-600" role="alert">

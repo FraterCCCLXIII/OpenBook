@@ -57,39 +57,34 @@ const settingsNavLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function StaffSettingsLayout() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-50">Admin settings</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Configure your business, branding, booking rules, and integrations.
-        </p>
-      </div>
-      <div className="flex flex-col gap-8 md:flex-row md:items-start">
-        <nav
-          className="w-full shrink-0 border-b border-zinc-800 pb-4 md:w-56 md:border-b-0 md:pb-0"
-          aria-label="Settings sections"
-        >
-          <ul className="flex flex-col gap-0.5">
-            {NAV.map((n) => {
-              const Icon = n.icon;
-              return (
-                <li key={n.path}>
-                  <NavLink
-                    to={`/staff/settings/${n.path}`}
-                    end={n.exact}
-                    className={settingsNavLinkClass}
-                  >
-                    <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
-                    <span className="min-w-0">{n.label}</span>
-                  </NavLink>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-        <div className="min-w-0 flex-1">
-          <Outlet />
-        </div>
+    /* Pull back the p-6 from the shell's inner wrapper so we can own the
+       full height and give each column its own independent scroll area. */
+    <div className="-m-6 flex h-dvh overflow-hidden md:flex-row">
+      <nav
+        className="hidden w-56 shrink-0 overflow-y-auto border-r border-zinc-800 px-3 py-6 md:flex md:flex-col"
+        aria-label="Settings sections"
+      >
+        <h1 className="mb-3 px-3 text-2xl font-semibold text-zinc-50">Admin settings</h1>
+        <ul className="flex flex-col gap-0.5">
+          {NAV.map((n) => {
+            const Icon = n.icon;
+            return (
+              <li key={n.path}>
+                <NavLink
+                  to={`/staff/settings/${n.path}`}
+                  end={n.exact}
+                  className={settingsNavLinkClass}
+                >
+                  <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+                  <span className="min-w-0">{n.label}</span>
+                </NavLink>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+      <div className="flex-1 overflow-y-auto p-6">
+        <Outlet />
       </div>
     </div>
   );

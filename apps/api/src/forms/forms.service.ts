@@ -57,7 +57,10 @@ export class FormsService {
     const forms = await this.prisma.form.findMany({
       where: { isActive: 1 },
       orderBy: { name: 'asc' },
-      include: { _count: { select: { fields: { where: { isActive: 1 } } } } },
+      include: {
+        _count: { select: { fields: { where: { isActive: 1 } } } },
+        assignments: true,
+      },
     });
     return forms.map((f) => ({
       id: f.id,
@@ -65,6 +68,7 @@ export class FormsService {
       slug: f.slug,
       description: f.description,
       fieldCount: f._count.fields,
+      roleAssignments: f.assignments.map((a) => a.roleSlug),
     }));
   }
 
@@ -144,9 +148,9 @@ export class FormsService {
     return { ok: true };
   }
 
-  async getFormsForCustomer(customerRoleSlug: string) {
+  async getFormsForRole(roleSlug: string) {
     const assignments = await this.prisma.formAssignment.findMany({
-      where: { roleSlug: customerRoleSlug },
+      where: { roleSlug },
       include: { form: true },
     });
     return assignments
@@ -157,6 +161,107 @@ export class FormsService {
         slug: a.form.slug,
         description: a.form.description,
       }));
+  }
+
+  /** Returns forms for a role with per-form submission status for a specific user. */
+  async getFormsForRoleWithStatus(roleSlug: string, userId: bigint) {
+    const assignments = await this.prisma.formAssignment.findMany({
+      where: { roleSlug },
+      include: {
+        form: {
+          include: {
+            fields: { where: { isActive: 1 }, orderBy: { sortOrder: 'asc' } },
+          },
+        },
+      },
+    });
+
+    const activeForms = assignments.filter((a) => a.form.isActive === 1);
+    const submissions = await this.prisma.formSubmission.findMany({
+      where: {
+        idForms: { in: activeForms.map((a) => a.idForms) },
+        idUsers: userId,
+      },
+      orderBy: { submittedAt: 'desc' },
+    });
+
+    const subByFormId = new Map(submissions.map((s) => [s.idForms, s]));
+
+    return activeForms.map((a) => {
+      const sub = subByFormId.get(a.idForms);
+      return {
+        id: a.form.id,
+        name: a.form.name,
+        slug: a.form.slug,
+        description: a.form.description,
+        fields: a.form.fields.map((f) => ({ id: f.id, label: f.label, fieldType: f.fieldType })),
+        submission: sub
+          ? {
+              id: sub.id,
+              submittedAt: (sub.submittedAt ?? new Date()).toISOString(),
+              answers: sub.fieldsSnapshot
+                ? (JSON.parse(sub.fieldsSnapshot) as Record<string, unknown>)
+                : {},
+            }
+          : null,
+      };
+    });
+  }
+
+  async getFormWithSubmission(formId: number, userId: bigint) {
+    const form = await this.prisma.form.findFirst({
+      where: { id: formId },
+      include: { fields: { where: { isActive: 1 }, orderBy: { sortOrder: 'asc' } } },
+    });
+    if (!form) throw new NotFoundException('Form not found');
+
+    const sub = await this.prisma.formSubmission.findFirst({
+      where: { idForms: formId, idUsers: userId },
+      orderBy: { submittedAt: 'desc' },
+    });
+
+    return {
+      id: form.id,
+      name: form.name,
+      slug: form.slug,
+      description: form.description,
+      fields: form.fields.map((f) => ({
+        id: f.id,
+        label: f.label,
+        fieldType: f.fieldType,
+        options: this.decodeOptions(f.options, f.fieldType),
+        isRequired: f.isRequired === 1,
+        sortOrder: f.sortOrder,
+      })),
+      submission: sub
+        ? {
+            id: sub.id,
+            submittedAt: (sub.submittedAt ?? new Date()).toISOString(),
+            answers: sub.fieldsSnapshot
+              ? (JSON.parse(sub.fieldsSnapshot) as Record<string, unknown>)
+              : {},
+          }
+        : null,
+    };
+  }
+
+  async deleteFormSubmission(formId: number, userId: bigint) {
+    await this.prisma.formSubmission.deleteMany({
+      where: { idForms: formId, idUsers: userId },
+    });
+    return { ok: true };
+  }
+
+  async getUserForEmail(userId: bigint) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, firstName: true, lastName: true },
+    });
+  }
+
+  /** @deprecated use getFormsForRole */
+  async getFormsForCustomer(roleSlug: string) {
+    return this.getFormsForRole(roleSlug);
   }
 
   async getFormForCustomer(formId: number) {

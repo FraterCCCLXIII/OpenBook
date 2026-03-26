@@ -49,6 +49,9 @@ const StaffBillingPage = lazy(() =>
 const StaffFormsPage = lazy(() =>
   import('./pages/staff/StaffFormsPage').then((m) => ({ default: m.StaffFormsPage })),
 );
+const StaffFormViewPage = lazy(() =>
+  import('./pages/staff/StaffFormViewPage').then((m) => ({ default: m.StaffFormViewPage })),
+);
 const StaffWebhooksPage = lazy(() =>
   import('./pages/staff/StaffWebhooksPage').then((m) => ({ default: m.StaffWebhooksPage })),
 );
@@ -149,6 +152,7 @@ export default function App() {
               <Route path="working-hours" element={<StaffAccountWorkingHoursSection />} />
               <Route path="integrations" element={<StaffAccountIntegrationsSection />} />
             </Route>
+            <Route path="/staff/form-view/:formId/:userId" element={<StaffFormViewPage />} />
             <Route path="/staff/provider/bookings/:id" element={<StaffProviderBookingDetailPage />} />
             <Route path="/staff/provider/bookings" element={<StaffProviderBookingsPage />} />
           </Route>

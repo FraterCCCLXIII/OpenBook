@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { StaffWorkingPlanEditor } from '../../components/staff/StaffWorkingPlanEditor';
 import { StaffFilesTab } from '../../components/staff/StaffFilesTab';
+import { StaffRoleFormsTab } from '../../components/staff/StaffRoleFormsTab';
 import { StaffMasterDetailLayout } from '../../components/staff/StaffMasterDetailLayout';
 import {
   StaffRecordListPanel,
@@ -1523,7 +1524,7 @@ function TeamMemberDetailPanel({
       {/* Forms tab */}
       {activeTab === 'forms' && (
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5">
-          <p className="text-sm text-zinc-500">Forms coming soon.</p>
+          <StaffRoleFormsTab roleSlug={roleSlug} userId={selectedId} />
         </div>
       )}
 
@@ -1799,32 +1800,25 @@ const accountNavLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function StaffAccountLayout() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-50">Account</h1>
-        <p className="mt-1 text-sm text-zinc-500">
-          Manage your profile, working hours, and integrations.
-        </p>
-      </div>
-      <div className="flex flex-col gap-8 md:flex-row md:items-start">
-        <nav
-          className="w-full shrink-0 border-b border-zinc-800 pb-4 md:w-48 md:border-b-0 md:pb-0"
-          aria-label="Account sections"
-        >
-          <ul className="flex flex-col gap-0.5">
-            {ACCOUNT_NAV.map(({ path, label, icon: Icon }) => (
-              <li key={path}>
-                <NavLink to={`/staff/account/${path}`} className={accountNavLinkClass}>
-                  <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
-                  <span className="min-w-0">{label}</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <div className="min-w-0 flex-1">
-          <Outlet />
-        </div>
+    <div className="-m-6 flex h-dvh overflow-hidden md:flex-row">
+      <nav
+        className="hidden w-48 shrink-0 overflow-y-auto border-r border-zinc-800 px-3 py-6 md:flex md:flex-col"
+        aria-label="Account sections"
+      >
+        <h1 className="mb-3 px-3 text-2xl font-semibold text-zinc-50">Account</h1>
+        <ul className="flex flex-col gap-0.5">
+          {ACCOUNT_NAV.map(({ path, label, icon: Icon }) => (
+            <li key={path}>
+              <NavLink to={`/staff/account/${path}`} className={accountNavLinkClass}>
+                <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+                <span className="min-w-0">{label}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <div className="flex-1 overflow-y-auto p-6">
+        <Outlet />
       </div>
     </div>
   );
