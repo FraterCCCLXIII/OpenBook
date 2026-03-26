@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet } from 'react-router-dom';
+import { PublicHomeLink } from '../components/PublicHomeLink';
 import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { useAuth } from '../auth/AuthContext';
 
@@ -26,12 +27,9 @@ function CustomerPortalDisabledNotice() {
         >
           Sign out
         </button>
-        <Link
-          to="/"
-          className="rounded-lg bg-[var(--color-brand,#0f766e)] px-4 py-2 text-sm font-medium text-white hover:opacity-95"
-        >
+        <PublicHomeLink className="rounded-lg bg-[var(--color-brand,#0f766e)] px-4 py-2 text-sm font-medium text-white hover:opacity-95">
           Back to home
-        </Link>
+        </PublicHomeLink>
       </div>
     </div>
   );

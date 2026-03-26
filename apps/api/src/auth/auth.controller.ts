@@ -141,8 +141,17 @@ export class AuthController {
     }
     const email = body.email.trim();
     const code = await this.otp.requestCode(email);
+    const [companyName, logoPng, companyLogo] = await Promise.all([
+      this.settings.getSettingByName('company_name'),
+      this.settings.getSettingByName('company_logo_email_png'),
+      this.settings.getSettingByName('company_logo'),
+    ]);
     // Always send via Mailpit (dev) or real SMTP (prod). Return code only in dev for test convenience.
-    await sendOtpCode(email, code).catch((err: unknown) => {
+    await sendOtpCode(email, code, 5, {
+      companyName: companyName ?? 'OpenBook',
+      logoDataUrl: logoPng,
+      companyLogoDataUrl: companyLogo,
+    }).catch((err: unknown) => {
       // Non-fatal: log but don't block the response
       console.error('[OTP] email send failed:', err);
     });

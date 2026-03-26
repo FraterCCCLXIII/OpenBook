@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthContext';
+import { PublicHomeLink } from '../../components/PublicHomeLink';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { FormField } from '../../components/ui/FormField';
@@ -52,9 +53,9 @@ export function CustomerRegisterPage() {
                 <p className="text-sm text-slate-500">
                   The customer portal is disabled. New accounts cannot be created.
                 </p>
-                <Link to="/" className="booking-button block">
+                <PublicHomeLink className="booking-button block">
                   Back to home
-                </Link>
+                </PublicHomeLink>
                 <Link to="/customer/login" className="booking-link block text-sm">
                   Sign in page
                 </Link>

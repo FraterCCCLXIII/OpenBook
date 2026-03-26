@@ -132,9 +132,11 @@ async function handleBookingConfirmation(appointmentId: string): Promise<void> {
     return;
   }
 
-  const companySetting = await prisma.setting.findFirst({
-    where: { name: 'company_name' },
-  });
+  const [companySetting, emailLogoSetting, companyLogoSetting] = await Promise.all([
+    prisma.setting.findFirst({ where: { name: 'company_name' } }),
+    prisma.setting.findFirst({ where: { name: 'company_logo_email_png' } }),
+    prisma.setting.findFirst({ where: { name: 'company_logo' } }),
+  ]);
   const companyName = companySetting?.value ?? 'OpenBook';
 
   const customerEmail = appointment.customer?.email;
@@ -164,6 +166,8 @@ async function handleBookingConfirmation(appointmentId: string): Promise<void> {
   try {
     await sendBookingConfirmation({
       companyName,
+      companyLogoEmailPng: emailLogoSetting?.value ?? null,
+      companyLogo: companyLogoSetting?.value ?? null,
       customerEmail,
       customerName,
       providerEmail: appointment.provider?.email ?? null,

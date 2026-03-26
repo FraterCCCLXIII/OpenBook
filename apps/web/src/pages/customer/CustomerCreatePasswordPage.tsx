@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiJson } from '../../lib/api';
+import { PublicHomeLink } from '../../components/PublicHomeLink';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { FormField } from '../../components/ui/FormField';
@@ -117,9 +118,9 @@ export function CustomerCreatePasswordPage() {
                 <p className="text-sm text-slate-500">
                   The customer portal is disabled. You cannot set a password here.
                 </p>
-                <Link to="/" className="booking-button block">
+                <PublicHomeLink className="booking-button block">
                   Back to home
-                </Link>
+                </PublicHomeLink>
               </div>
             </div>
           </div>

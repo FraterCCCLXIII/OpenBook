@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { PublicHomeLink } from './PublicHomeLink';
 
 type Props = {
   message?: string;
@@ -20,9 +20,9 @@ export function BookingDisabledScreen({ message, showHomeLink = true }: Props) {
             <div className="frame-content mt-6 space-y-6 text-center">
               <p className="text-sm leading-relaxed text-slate-600">{text}</p>
               {showHomeLink && (
-                <Link to="/" className="booking-button inline-block">
+                <PublicHomeLink className="booking-button inline-block">
                   Back to home
-                </Link>
+                </PublicHomeLink>
               )}
             </div>
           </div>

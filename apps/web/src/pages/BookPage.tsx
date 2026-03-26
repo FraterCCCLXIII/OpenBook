@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { BookWizard } from '../components/BookWizard';
 import { BookingDisabledScreen } from '../components/BookingDisabledScreen';
+import { PublicHomeLink } from '../components/PublicHomeLink';
 
 async function fetchPublicSettings(): Promise<Record<string, string>> {
   const res = await fetch('/api/settings/public');
@@ -52,9 +53,9 @@ export function BookPage() {
                     Sign in
                   </Link>
                 )}
-                <Link to="/" className="booking-link block text-sm">
+                <PublicHomeLink className="booking-link block text-sm">
                   Back to home
-                </Link>
+                </PublicHomeLink>
               </div>
             </div>
           </div>
@@ -82,9 +83,9 @@ export function BookPage() {
                 >
                   Sign out
                 </button>
-                <Link to="/" className="booking-link block text-sm">
+                <PublicHomeLink className="booking-link block text-sm">
                   Back to home
-                </Link>
+                </PublicHomeLink>
               </div>
             </div>
           </div>

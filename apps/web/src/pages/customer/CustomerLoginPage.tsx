@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthContext';
 import { apiJson } from '../../lib/api';
+import { PublicHomeLink } from '../../components/PublicHomeLink';
 import { OtpInput } from '../../components/ui/OtpInput';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -374,9 +375,9 @@ export function CustomerLoginPage() {
                     The customer portal is currently disabled. Signing in and booking through
                     your account are not available.
                   </p>
-                  <Link to="/" className="booking-button block">
+                  <PublicHomeLink className="booking-button block">
                     Back to home
-                  </Link>
+                  </PublicHomeLink>
                 </div>
               </>
             )}

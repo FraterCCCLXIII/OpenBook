@@ -17,6 +17,7 @@ import {
 import { OpenBookLogoMark } from '../components/OpenBookLogoMark';
 import { CookieBanner } from '../components/CookieBanner';
 import { useAuth } from '../auth/AuthContext';
+import { hexToDarkenedRgb, normalizeBrandHex } from '../lib/brandColor';
 
 async function fetchPublicSettings(): Promise<Record<string, string>> {
   const res = await fetch('/api/settings/public');
@@ -67,8 +68,10 @@ export function PublicLayout() {
   const companyLink = settings.company_link;
   const companyLogo = settings.company_logo;
   const companyName = settings.company_name;
-  const companyColor = settings.company_color?.trim();
+  const brandHex = normalizeBrandHex(settings.company_color);
   const theme = settings.theme ?? 'default';
+  /** Only `dark` changes the shell; `default` and `light` both use the light palette. */
+  const isDark = theme === 'dark';
   const showLanguage = settings.display_language_selector !== '0';
   const showLoginButton = settings.display_login_button !== '0';
 
@@ -80,12 +83,21 @@ export function PublicLayout() {
   }, [settings.default_language, i18n]);
 
   useEffect(() => {
-    if (companyColor && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(companyColor)) {
-      document.documentElement.style.setProperty('--color-brand', companyColor);
+    document.documentElement.dataset.publicTheme = isDark ? 'dark' : 'light';
+    return () => {
+      delete document.documentElement.dataset.publicTheme;
+    };
+  }, [isDark]);
+
+  useEffect(() => {
+    if (brandHex) {
+      document.documentElement.style.setProperty('--color-brand', brandHex);
+      document.documentElement.style.setProperty('--color-brand-dark', hexToDarkenedRgb(brandHex));
     } else {
       document.documentElement.style.removeProperty('--color-brand');
+      document.documentElement.style.removeProperty('--color-brand-dark');
     }
-  }, [companyColor]);
+  }, [brandHex]);
 
   const isCustomer = user?.kind === 'customer';
 
@@ -112,26 +124,73 @@ export function PublicLayout() {
     [
       'block rounded-md px-3 py-2 text-sm transition-colors',
       isActive
-        ? 'bg-slate-100 font-medium text-slate-900'
-        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+        ? isDark
+          ? 'bg-slate-700 font-medium text-white'
+          : 'bg-slate-100 font-medium text-slate-900'
+        : isDark
+          ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
     ].join(' ');
 
-  const shellClass =
-    theme === 'dark'
-      ? 'flex min-h-screen flex-col bg-slate-900 text-slate-100'
-      : 'flex min-h-screen flex-col bg-slate-50 text-slate-900';
+  const shellClass = isDark
+    ? 'flex min-h-screen flex-col bg-slate-950 text-slate-100'
+    : 'flex min-h-screen flex-col bg-slate-50 text-slate-900';
+
+  const navSurface = isDark
+    ? 'border-slate-800 bg-slate-950/95 backdrop-blur'
+    : 'border-slate-200 bg-white/90 backdrop-blur';
+
+  const outlineBtn = isDark
+    ? 'border-slate-600 text-slate-300 hover:border-slate-500 hover:text-white'
+    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800';
+
+  const navBrandBorder =
+    brandHex && !isDark ? ({ borderBottomColor: `${brandHex}66` } as const) : undefined;
+  const navBrandBorderDark =
+    brandHex && isDark ? ({ borderBottomColor: `${brandHex}44` } as const) : undefined;
+
+  const accountTrigger = isDark
+    ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
+    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
+
+  const langTrigger = isDark
+    ? 'text-slate-300 hover:text-white'
+    : 'text-slate-600 hover:text-slate-900';
+
+  const popoverSurface = isDark
+    ? 'border-slate-700 bg-slate-900 shadow-xl'
+    : 'border-slate-200 bg-white shadow-lg';
+
+  const footerSurface = isDark ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white';
+
+  const footerLink = isDark
+    ? 'text-xs text-slate-400 transition hover:text-slate-200 hover:underline'
+    : 'text-xs text-slate-500 transition hover:text-slate-800 hover:underline';
+
+  const selectMenu = isDark
+    ? 'w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-200 outline-none focus:border-brand focus:ring-1 focus:ring-brand/20'
+    : 'w-full rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700 outline-none focus:border-brand focus:ring-1 focus:ring-brand/20';
+
+  const selectMenuLg = isDark
+    ? 'w-full rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-brand focus:ring-1 focus:ring-brand/20'
+    : 'w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand focus:ring-1 focus:ring-brand/20';
+
+  const menuSep = isDark ? 'border-slate-700' : 'border-slate-100';
+  const menuHr = `my-1.5 border-0 border-t ${menuSep}`;
+
+  const menuMuted = isDark ? 'text-slate-500' : 'text-slate-500';
+
+  const logoutBtn = isDark
+    ? 'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white'
+    : 'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900';
 
   return (
     <div className={shellClass}>
       {/* Booking top nav — 3-column: [return to site] [logo] [account / language] */}
       <nav
         id="booking-top-nav"
-        className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur"
-        style={
-          companyColor && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(companyColor)
-            ? { borderBottomColor: `${companyColor}55` }
-            : undefined
-        }
+        className={`sticky top-0 z-50 border-b ${navSurface}`}
+        style={isDark ? navBrandBorderDark : navBrandBorder}
         aria-label="Booking"
       >
         <div className="flex w-full items-center px-4 py-3">
@@ -140,7 +199,7 @@ export function PublicLayout() {
             {isCustomer && onBookPage ? (
               <Link
                 to="/customer/dashboard"
-                className="inline-flex h-9 items-center rounded-xl border border-slate-200 px-4 text-sm leading-none text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                className={`inline-flex h-9 items-center rounded-xl border px-4 text-sm leading-none transition ${outlineBtn}`}
               >
                 <ArrowLeft className="mr-1.5 h-4 w-4" aria-hidden="true" />
                 Back
@@ -148,7 +207,7 @@ export function PublicLayout() {
             ) : companyLink ? (
               <a
                 href={companyLink}
-                className="inline-flex items-center rounded-xl border border-slate-200 px-3 py-1 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                className={`inline-flex items-center rounded-xl border px-3 py-1 text-sm transition ${outlineBtn}`}
               >
                 <ArrowLeft className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                 Return to Site
@@ -157,7 +216,7 @@ export function PublicLayout() {
           </div>
 
           {/* Center: Company logo */}
-          <div className="flex w-1/3 justify-center text-slate-900">
+          <div className={`flex w-1/3 justify-center ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
             <Link to="/" aria-label={companyName ?? t('app_name')}>
               {companyLogo ? (
                 <img
@@ -176,7 +235,7 @@ export function PublicLayout() {
             {!isCustomer && showLoginButton && (
               <Link
                 to="/customer/login"
-                className="rounded-xl border border-slate-200 px-3 py-1 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                className={`rounded-xl border px-3 py-1 text-sm transition ${outlineBtn}`}
               >
                 Log in
               </Link>
@@ -190,7 +249,7 @@ export function PublicLayout() {
                   aria-expanded={userMenuOpen}
                   aria-controls="customer-account-dropdown-menu"
                   aria-haspopup="menu"
-                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 transition ${accountTrigger}`}
                 >
                   <CircleUser className="h-[18px] w-[18px]" aria-hidden="true" />
                   <ChevronDown className="h-2 w-2" aria-hidden="true" />
@@ -272,14 +331,14 @@ export function PublicLayout() {
                     {showLanguage && (
                       <>
                         <li role="separator">
-                          <hr className="my-1.5 border-slate-100" />
+                          <hr className={menuHr} />
                         </li>
                         <li className="px-3 py-1.5" role="none">
-                          <small className="mb-1 block text-xs text-slate-500">
+                          <small className={`mb-1 block text-xs ${menuMuted}`}>
                             {t('language')}
                           </small>
                           <select
-                            className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm text-slate-700 outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+                            className={selectMenu}
                             value={i18n.language}
                             onChange={(e) => void i18n.changeLanguage(e.target.value)}
                           >
@@ -293,14 +352,14 @@ export function PublicLayout() {
                     )}
 
                     <li role="separator">
-                      <hr className="my-1.5 border-slate-100" />
+                      <hr className={menuHr} />
                     </li>
                     <li role="none">
                       <button
                         type="button"
                         role="menuitem"
                         onClick={() => void handleLogout()}
-                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                        className={logoutBtn}
                       >
                         <LogOut className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
                         {t('log_out')}
@@ -314,7 +373,7 @@ export function PublicLayout() {
                 <button
                   type="button"
                   onClick={() => setLangOpen((o) => !o)}
-                  className="inline-flex items-center text-slate-600 transition hover:text-slate-900"
+                  className={`inline-flex items-center transition ${langTrigger}`}
                   aria-expanded={langOpen}
                   aria-haspopup="listbox"
                   aria-label={t('language')}
@@ -324,13 +383,13 @@ export function PublicLayout() {
 
                 {langOpen && (
                   <div
-                    className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+                    className={`absolute right-0 top-full mt-2 w-48 rounded-xl border p-2 ${popoverSurface}`}
                     role="dialog"
                     aria-label="Language selection"
                   >
-                    <p className="mb-1 px-2 text-xs text-slate-500">{t('language')}</p>
+                    <p className={`mb-1 px-2 text-xs ${menuMuted}`}>{t('language')}</p>
                     <select
-                      className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-brand focus:ring-1 focus:ring-brand/20"
+                      className={selectMenuLg}
                       value={i18n.language}
                       onChange={(e) => {
                         void i18n.changeLanguage(e.target.value);
@@ -355,21 +414,15 @@ export function PublicLayout() {
       </main>
 
       {hasFooterLinks && (
-        <footer className="border-t border-slate-200 bg-white py-4">
+        <footer className={`border-t py-4 ${footerSurface}`}>
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-4 px-4">
             {showTerms && (
-              <Link
-                to="/terms"
-                className="text-xs text-slate-500 transition hover:text-slate-800 hover:underline"
-              >
+              <Link to="/terms" className={footerLink}>
                 Terms &amp; Conditions
               </Link>
             )}
             {showPrivacy && (
-              <Link
-                to="/privacy"
-                className="text-xs text-slate-500 transition hover:text-slate-800 hover:underline"
-              >
+              <Link to="/privacy" className={footerLink}>
                 Privacy Policy
               </Link>
             )}
@@ -378,7 +431,7 @@ export function PublicLayout() {
       )}
 
       {showCookieBanner && (
-        <CookieBanner content={legalSettings.cookie_notice_content} />
+        <CookieBanner content={legalSettings.cookie_notice_content} variant={isDark ? 'dark' : 'light'} />
       )}
     </div>
   );

@@ -26,6 +26,8 @@ import { StaffLdapImportPanel } from '../../../components/staff/StaffLdapImportP
 import { StaffWorkingPlanEditor } from '../../../components/staff/StaffWorkingPlanEditor';
 import { RichTextEditor } from '../../../components/staff/RichTextEditor';
 import { TIMEZONE_GROUPS } from '../../../lib/timezones';
+import { DEFAULT_BRAND_HEX, resolveStaffBrandHex } from '../../../lib/brandColor';
+import { dataUrlToEmailPngDataUrl } from '../../../lib/emailLogo';
 
 type SectionValues = Record<string, string>;
 
@@ -227,13 +229,18 @@ const SECTION_FIELDS: Record<string, FieldDef[]> = {
     { key: 'company_name', label: 'Company name', placeholder: 'Your business' },
     { key: 'company_email', label: 'Company email', type: 'email', placeholder: 'contact@example.com' },
     { key: 'company_link', label: 'Website URL', type: 'url', placeholder: 'https://example.com' },
-    { key: 'company_logo', label: 'Company logo (image)', type: 'logo' },
-    { key: 'company_logo_email_png', label: 'Email logo (PNG, optional)', type: 'logo' },
+    {
+      key: 'company_logo',
+      label: 'Company logo (image)',
+      type: 'logo',
+      hint: 'Shown in the public header. A PNG is stored for email templates; PNG/JPEG/WebP logos also work if rasterization fails. Save after uploading.',
+    },
     { key: 'company_color', label: 'Brand color', type: 'color' },
     {
       key: 'theme',
       label: 'Public theme',
       type: 'select',
+      hint: 'Default and Light use the same palette. Dark restyles the public nav, footer, booking wizard, and related surfaces.',
       options: [
         { value: 'default', label: 'Default' },
         { value: 'light', label: 'Light' },
@@ -474,6 +481,20 @@ function normalizeCustomerLoginValues(v: SectionValues): SectionValues {
   return out;
 }
 
+function normalizeGeneralSectionValues(v: SectionValues): SectionValues {
+  const out = { ...v };
+  out.company_color = resolveStaffBrandHex(out.company_color);
+  if (!out.company_logo?.trim()) {
+    out.company_logo_email_png = '';
+  } else if (!out.company_logo_email_png?.trim()) {
+    const logo = out.company_logo.trim();
+    if (/^data:image\/(png|jpeg|jpg|gif|webp);base64,/i.test(logo)) {
+      out.company_logo_email_png = logo;
+    }
+  }
+  return out;
+}
+
 function SectionForm({ section }: { section: string }) {
   const fields = SECTION_FIELDS[section] ?? [];
 
@@ -520,6 +541,9 @@ function SectionFormInner({
   const qc = useQueryClient();
   const [values, setValues] = useState<SectionValues>(() => {
     const result = { ...initialValues };
+    if (section === 'general') {
+      result.company_color = resolveStaffBrandHex(result.company_color);
+    }
     for (const f of fields) {
       if (f.type === 'select' && !result[f.key] && f.options?.length) {
         result[f.key] = f.options[0].value;
@@ -559,7 +583,11 @@ function SectionFormInner({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const payload =
-      section === 'customer-login' ? normalizeCustomerLoginValues(values) : values;
+      section === 'customer-login'
+        ? normalizeCustomerLoginValues(values)
+        : section === 'general'
+          ? normalizeGeneralSectionValues(values)
+          : values;
     m.mutate(payload);
   }
 
@@ -620,21 +648,28 @@ function SectionFormInner({
                 accept="image/*"
                 className="w-full text-sm text-zinc-300 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-800 file:px-3 file:py-1.5 file:text-sm file:text-zinc-200"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
+                  const file = e.target.files?.[0];
+                  if (!file) return;
                   const reader = new FileReader();
                   reader.onload = () => {
                     const data = String(reader.result ?? '');
-                    setValues((v) => {
-                      const next = { ...v, [field.key]: data };
-                      // Auto-populate the email logo when a SVG main logo is uploaded
-                      if (field.key === 'company_logo' && f.type === 'image/svg+xml') {
-                        next.company_logo_email_png = data;
-                      }
-                      return next;
+                    if (field.key !== 'company_logo') {
+                      setValues((v) => ({ ...v, [field.key]: data }));
+                      return;
+                    }
+                    void dataUrlToEmailPngDataUrl(data).then((png) => {
+                      const rasterFallback =
+                        /^data:image\/(png|jpeg|jpg|gif|webp);base64,/i.test(data)
+                          ? data
+                          : '';
+                      setValues((v) => ({
+                        ...v,
+                        company_logo: data,
+                        company_logo_email_png: png ?? rasterFallback,
+                      }));
                     });
                   };
-                  reader.readAsDataURL(f);
+                  reader.readAsDataURL(file);
                 }}
               />
               {values[field.key] ? (
@@ -647,32 +682,73 @@ function SectionFormInner({
                   <button
                     type="button"
                     className="text-xs text-red-400 hover:underline"
-                    onClick={() => setValues((v) => ({ ...v, [field.key]: '' }))}
+                    onClick={() =>
+                      setValues((v) =>
+                        field.key === 'company_logo'
+                          ? { ...v, company_logo: '', company_logo_email_png: '' }
+                          : { ...v, [field.key]: '' },
+                      )
+                    }
                   >
                     Remove
                   </button>
                 </div>
               ) : null}
+              {field.key === 'company_logo' &&
+              (values.company_logo_email_png ||
+                /^data:image\/(png|jpeg|jpg|gif|webp);base64,/i.test(
+                  values.company_logo ?? '',
+                )) ? (
+                <div className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3">
+                  <p className="mb-2 text-xs text-zinc-500">
+                    Email header preview (same image used in OTP, booking, and form emails).
+                  </p>
+                  <img
+                    src={
+                      values.company_logo_email_png ||
+                      values.company_logo ||
+                      ''
+                    }
+                    alt=""
+                    className="max-h-16 max-w-[200px] object-contain opacity-95"
+                  />
+                </div>
+              ) : null}
             </div>
           ) : field.type === 'color' ? (
-            <div className="flex items-center gap-3">
-              <input
-                type="color"
-                value={
-                  /^#[0-9A-Fa-f]{6}$/.test(values[field.key] ?? '')
-                    ? values[field.key]
-                    : '#2563eb'
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="color"
+                  value={resolveStaffBrandHex(values[field.key])}
+                  onChange={(e) =>
+                    setValues((v) => ({ ...v, [field.key]: e.target.value.toLowerCase() }))
+                  }
+                  className="h-10 w-14 cursor-pointer rounded border border-zinc-700 bg-zinc-950"
+                />
+                <input
+                  type="text"
+                  value={values[field.key] ?? ''}
+                  placeholder={resolveStaffBrandHex('')}
+                  onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
+                  onBlur={() =>
+                    setValues((v) => ({
+                      ...v,
+                      [field.key]: resolveStaffBrandHex(v[field.key]),
+                    }))
+                  }
+                  className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
+                />
+              </div>
+              <button
+                type="button"
+                className="text-xs text-zinc-500 transition hover:text-zinc-300 hover:underline"
+                onClick={() =>
+                  setValues((v) => ({ ...v, [field.key]: DEFAULT_BRAND_HEX }))
                 }
-                onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
-                className="h-10 w-14 cursor-pointer rounded border border-zinc-700 bg-zinc-950"
-              />
-              <input
-                type="text"
-                value={values[field.key] ?? ''}
-                placeholder="#2563eb"
-                onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
-                className="flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2"
-              />
+              >
+                Reset to default ({DEFAULT_BRAND_HEX})
+              </button>
             </div>
           ) : field.type === 'timezoneSelect' ? (
             <select

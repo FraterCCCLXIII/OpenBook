@@ -66,7 +66,7 @@ body {
 
 .booking-input:focus {
   border-color: var(--color-brand);
-  box-shadow: 0 0 0 3px rgb(67 154 130 / 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 28%, transparent);
 }
 
 .booking-button {
@@ -171,7 +171,7 @@ body {
 .booking-card.selected,
 .booking-card[aria-checked='true'] {
   border-color: var(--color-brand);
-  background-color: rgb(67 154 130 / 0.05);
+  background-color: color-mix(in srgb, var(--color-brand) 8%, white);
 }
 
 /* ─── Disabled booking button (CSS class variant) ───────────────────────────── */
@@ -660,3 +660,100 @@ body {
 .richtext blockquote { border-left: 3px solid #e2e8f0; padding-left: 0.75em; margin: 0.5em 0; color: #64748b; }
 .richtext hr { border: none; border-top: 1px solid #e2e8f0; margin: 0.75em 0; }
 .richtext s { text-decoration: line-through; }
+
+/* ─── Public dark theme (General → Public theme: Dark) ─────────────────────── */
+
+html[data-public-theme='dark'] body {
+  background-color: #020617;
+  color: #e2e8f0;
+}
+
+html[data-public-theme='dark'] .wizard-frame {
+  border-color: #334155;
+  background-color: #0f172a;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+}
+
+html[data-public-theme='dark'] .frame-title {
+  color: #f1f5f9;
+}
+
+html[data-public-theme='dark'] .form-label {
+  color: #cbd5e1;
+}
+
+html[data-public-theme='dark'] .booking-input {
+  border-color: #475569;
+  background-color: #1e293b;
+  color: #f1f5f9;
+  box-shadow: none;
+}
+
+html[data-public-theme='dark'] .booking-input:focus {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 35%, transparent);
+}
+
+html[data-public-theme='dark'] .booking-card {
+  border-color: #334155;
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+html[data-public-theme='dark'] .booking-card:hover {
+  border-color: #475569;
+  box-shadow: 0 2px 8px 0 rgb(0 0 0 / 0.25);
+}
+
+html[data-public-theme='dark'] .booking-card-subtitle {
+  color: #94a3b8;
+}
+
+html[data-public-theme='dark'] .booking-card.selected,
+html[data-public-theme='dark'] .booking-card[aria-checked='true'] {
+  background-color: color-mix(in srgb, var(--color-brand) 14%, #0f172a);
+}
+
+html[data-public-theme='dark'] .booking-button-secondary {
+  border-color: #475569;
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+html[data-public-theme='dark'] .booking-button-secondary:hover {
+  background-color: #334155;
+  border-color: #64748b;
+}
+
+html[data-public-theme='dark'] .date-picker-container {
+  border-color: #475569;
+  background-color: #1e293b;
+}
+
+html[data-public-theme='dark'] .month {
+  border-color: #475569;
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+html[data-public-theme='dark'] .date {
+  border-color: #475569;
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+html[data-public-theme='dark'] .hour-slot {
+  border-color: #475569;
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+html[data-public-theme='dark'] .booking-dropdown {
+  border-color: #334155;
+  background-color: #0f172a;
+  box-shadow: 0 8px 24px 0 rgb(0 0 0 / 0.35);
+}
+
+html[data-public-theme='dark'] .richtext {
+  color: #cbd5e1;
+}

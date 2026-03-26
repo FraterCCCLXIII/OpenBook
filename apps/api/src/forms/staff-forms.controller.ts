@@ -20,11 +20,15 @@ import {
 import { can, canView } from '../auth/permissions.ea';
 import { FormsService, type CreateFormInput } from './forms.service';
 import { sendFormReminderEmail } from '../jobs/email.service';
+import { SettingsService } from '../settings/settings.service';
 
 @Controller('staff/forms')
 @UseGuards(StaffAuthGuard)
 export class StaffFormsController {
-  constructor(private readonly forms: FormsService) {}
+  constructor(
+    private readonly forms: FormsService,
+    private readonly settings: SettingsService,
+  ) {}
 
   @Get()
   async list(@Req() req: RequestWithStaff) {
@@ -106,7 +110,22 @@ export class StaffFormsController {
     const recipientName =
       [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
 
-    await sendFormReminderEmail(user.email, recipientName, incomplete.map((f) => ({ name: f.name, description: f.description })));
+    const [companyName, logoPng, companyLogo] = await Promise.all([
+      this.settings.getSettingByName('company_name'),
+      this.settings.getSettingByName('company_logo_email_png'),
+      this.settings.getSettingByName('company_logo'),
+    ]);
+
+    await sendFormReminderEmail(
+      user.email,
+      recipientName,
+      incomplete.map((f) => ({ name: f.name, description: f.description })),
+      {
+        companyName: companyName ?? 'OpenBook',
+        logoDataUrl: logoPng,
+        companyLogoDataUrl: companyLogo,
+      },
+    );
 
     return { ok: true, sent: true, count: incomplete.length };
   }

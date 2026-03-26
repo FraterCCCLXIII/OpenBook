@@ -58,6 +58,10 @@ export interface BookingEmailData {
   serviceName: string;
   startDatetime: string;
   appointmentId: string;
+  /** Inline PNG data URL for `<img src>` (General → company logo, auto-generated). */
+  companyLogoEmailPng?: string | null;
+  /** Main `company_logo` data URL; used if email PNG is empty but logo is already raster. */
+  companyLogo?: string | null;
   /** When false, skips customer confirmation email (settings-driven). */
   sendCustomerEmail?: boolean;
   /** When false, skips provider notification email (settings-driven). */
@@ -91,6 +95,64 @@ function renderTemplate(
   );
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** Only allow inline raster data URLs for `<img src>` (email clients block many other schemes). */
+function sanitizeEmailImageSrc(src: string | null | undefined): string | null {
+  const s = src?.trim();
+  if (!s) return null;
+  if (
+    s.startsWith('data:image/png;base64,') ||
+    s.startsWith('data:image/jpeg;base64,') ||
+    s.startsWith('data:image/jpg;base64,') ||
+    s.startsWith('data:image/gif;base64,') ||
+    s.startsWith('data:image/webp;base64,')
+  ) {
+    return s;
+  }
+  return null;
+}
+
+function resolveEmailHeaderImageSrc(
+  emailPng: string | null | undefined,
+  companyLogo: string | null | undefined,
+): string | null {
+  return sanitizeEmailImageSrc(emailPng) ?? sanitizeEmailImageSrc(companyLogo);
+}
+
+/**
+ * Top-of-email header: company logo when available, otherwise the company name.
+ * Always returns a non-empty block (falls back to "OpenBook" if name is empty).
+ */
+export function buildEmailHeaderBlock(
+  companyName: string,
+  images: { emailPng?: string | null; companyLogo?: string | null },
+): string {
+  const name = (companyName || 'OpenBook').trim() || 'OpenBook';
+  const src = resolveEmailHeaderImageSrc(images.emailPng, images.companyLogo);
+  if (src) {
+    const alt = escapeHtml(name);
+    const srcAttr = src.replace(/&/g, '&amp;');
+    return `<div style="padding:24px 32px 28px;text-align:center;background:#ffffff"><img src="${srcAttr}" alt="${alt}" width="200" style="max-width:200px;height:auto;display:inline-block;border:0" /></div>`;
+  }
+  const safeName = escapeHtml(name);
+  return `<div style="padding:24px 32px 28px;text-align:center;background:#ffffff"><p style="margin:0;font-size:22px;font-weight:700;color:#0f172a;line-height:1.25">${safeName}</p></div>`;
+}
+
+export type EmailBranding = {
+  companyName?: string;
+  /** `company_logo_email_png` setting. */
+  logoDataUrl?: string | null;
+  /** `company_logo` setting — used when email PNG is missing but logo is raster. */
+  companyLogoDataUrl?: string | null;
+};
+
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 // ─── OTP email ───────────────────────────────────────────────────────────────
@@ -99,14 +161,21 @@ export async function sendOtpCode(
   email: string,
   code: string,
   expiryMinutes = 5,
+  branding?: EmailBranding,
 ): Promise<void> {
   const t = getTransporter();
+  const company = branding?.companyName?.trim() || 'OpenBook';
+  const headerBlock = buildEmailHeaderBlock(company, {
+    emailPng: branding?.logoDataUrl,
+    companyLogo: branding?.companyLogoDataUrl,
+  });
   await t.sendMail({
-    from: '"OpenBook" <noreply@openbook.local>',
+    from: `"${company}" <noreply@openbook.local>`,
     to: email,
     subject: 'Your verification code',
     html: `
       <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        ${headerBlock}
         <h2 style="font-size:22px;font-weight:700;color:#0f172a;margin:0 0 8px">
           Your verification code
         </h2>
@@ -141,6 +210,10 @@ export async function sendBookingConfirmation(
     SERVICE_NAME: data.serviceName,
     START_DATETIME: formatDate(data.startDatetime),
     APPOINTMENT_ID: data.appointmentId,
+    EMAIL_HEADER_BLOCK: buildEmailHeaderBlock(data.companyName, {
+      emailPng: data.companyLogoEmailPng,
+      companyLogo: data.companyLogo,
+    }),
   };
 
   const sendCust = data.sendCustomerEmail !== false;
@@ -171,9 +244,15 @@ export async function sendFormReminderEmail(
   recipientEmail: string,
   recipientName: string,
   forms: { name: string; description: string | null }[],
+  branding?: EmailBranding,
 ): Promise<void> {
   const t = getTransporter();
-  const from = '"OpenBook" <noreply@openbook.local>';
+  const company = branding?.companyName?.trim() || 'OpenBook';
+  const from = `"${company}" <noreply@openbook.local>`;
+  const headerBlock = buildEmailHeaderBlock(company, {
+    emailPng: branding?.logoDataUrl,
+    companyLogo: branding?.companyLogoDataUrl,
+  });
 
   const formListHtml = forms
     .map(
@@ -187,6 +266,7 @@ export async function sendFormReminderEmail(
 
   const html = `
     <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#0f172a">
+      ${headerBlock}
       <h2 style="font-size:22px;font-weight:700;margin:0 0 8px">Action required: complete your forms</h2>
       <p style="color:#64748b;margin:0 0 24px">
         Hi ${recipientName}, you have ${forms.length} form${forms.length === 1 ? '' : 's'} that still need to be completed.

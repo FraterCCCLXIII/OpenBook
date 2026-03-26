@@ -92,6 +92,22 @@ function to12h(time: string): string {
   return `${h12}:${mStr} ${suffix}`;
 }
 
+/** Normalize "H:MM" or "HH:MM" to "HH:MM" for 24h display (matches General → Time format). */
+function format24h(time: string): string {
+  const parts = time.trim().split(':');
+  const hStr = parts[0] ?? '0';
+  const mStr = parts[1] ?? '00';
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (isNaN(h) || isNaN(m)) return time;
+  return `${pad2(h)}:${pad2(m)}`;
+}
+
+function formatBookTime(time: string, use24h: boolean): string {
+  if (!time) return '';
+  return use24h ? format24h(time) : to12h(time);
+}
+
 // ─── Field wrapper ────────────────────────────────────────────────────────────
 
 function Field({
@@ -344,6 +360,8 @@ export function BookWizard() {
 
   const services = servicesQuery.data ?? [];
   const settings = settingsQuery.data ?? {};
+  /** General → Time format: `24` = 24-hour labels in the booking wizard. */
+  const use24hTime = settings.time_format === '24';
   const customFields = customFieldsQuery.data ?? [];
   const selectedService = services.find((s) => s.id === serviceId);
   const selectedProvider = providers.find((p) => p.id === providerId);
@@ -655,7 +673,7 @@ export function BookWizard() {
                     className="text-sm font-medium text-slate-900"
                   >
                     {selSlot
-                      ? `${MONTHS_LONG[selMonth]} ${selDay} at ${to12h(selSlot)}`
+                      ? `${MONTHS_LONG[selMonth]} ${selDay} at ${formatBookTime(selSlot, use24hTime)}`
                       : 'Select Time'}
                   </p>
                 </div>
@@ -688,7 +706,7 @@ export function BookWizard() {
                           className={`hour-slot${selSlot === h ? ' selected' : ''}`}
                           onClick={() => setSelSlot(h)}
                         >
-                          {to12h(h)}
+                          {formatBookTime(h, use24hTime)}
                         </button>
                       ))}
                     </div>
@@ -988,9 +1006,10 @@ export function BookWizard() {
                                 year: 'numeric',
                                 hour: 'numeric',
                                 minute: '2-digit',
+                                hour12: !use24hTime,
                               },
                             )
-                          : `${MONTHS_LONG[selMonth]} ${selDay}, ${selYear} at ${to12h(selSlot)}`}
+                          : `${MONTHS_LONG[selMonth]} ${selDay}, ${selYear} at ${formatBookTime(selSlot, use24hTime)}`}
                       </dd>
                     </div>
                   </dl>
