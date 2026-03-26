@@ -17,6 +17,7 @@ import { CustomerAccountPage } from './pages/customer/CustomerAccountPage';
 import { CustomerBookingDetailPage } from './pages/customer/CustomerBookingDetailPage';
 import { CustomerBookingsPage } from './pages/customer/CustomerBookingsPage';
 import { CustomerConsentsPage } from './pages/customer/CustomerConsentsPage';
+import { LegalPage } from './pages/LegalPage';
 import { CustomerFormsPage } from './pages/customer/CustomerFormsPage';
 import { useAuth } from './auth/AuthContext';
 import { StaffLoginPage } from './pages/staff/StaffLoginPage';
@@ -97,6 +98,8 @@ export default function App() {
             {/* Public / unauthenticated */}
             <Route path="/" element={<RootPage />} />
             <Route path="/book" element={<BookPage />} />
+            <Route path="/terms" element={<LegalPage type="terms" />} />
+            <Route path="/privacy" element={<LegalPage type="privacy" />} />
             <Route path="/customer/login" element={<CustomerLoginPage />} />
             <Route path="/customer/register" element={<CustomerRegisterPage />} />
             <Route path="/customer/create-password" element={<CustomerCreatePasswordPage />} />

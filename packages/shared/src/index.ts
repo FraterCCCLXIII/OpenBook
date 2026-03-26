@@ -170,11 +170,15 @@ export type LegalSettings = z.infer<typeof legalSettingsSchema>;
 
 export const analyticsSettingsSchema = z.object({
   google_analytics_code: z.string().optional(),
+});
+export type AnalyticsSettings = z.infer<typeof analyticsSettingsSchema>;
+
+export const matomoSettingsSchema = z.object({
   matomo_analytics_active: z.enum(['0', '1']).optional(),
   matomo_analytics_url: z.string().url().optional().or(z.literal('')),
   matomo_analytics_site_id: z.string().optional(),
 });
-export type AnalyticsSettings = z.infer<typeof analyticsSettingsSchema>;
+export type MatomoSettings = z.infer<typeof matomoSettingsSchema>;
 
 export const customerLoginSettingsSchema = z.object({
   customer_login_enabled: z.enum(['0', '1']).optional(),
@@ -216,6 +220,7 @@ export const SETTINGS_SECTION_SCHEMAS = {
   'email-notifications': emailNotificationsSettingsSchema,
   legal: legalSettingsSchema,
   analytics: analyticsSettingsSchema,
+  matomo: matomoSettingsSchema,
   'customer-login': customerLoginSettingsSchema,
   'customer-profiles': customerProfilesSettingsSchema,
   'service-areas': serviceAreasSettingsSchema,

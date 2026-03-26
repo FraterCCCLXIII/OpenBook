@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
-  AlignLeft, Bold, CalendarDays, CheckSquare, ChevronDown, ChevronLeft,
-  CircleDot, Copy, FileText, GripVertical, Heading2, Heading3,
-  Italic, List, ListOrdered, TextCursorInput, Trash2, Type,
+  AlignLeft, CalendarDays, CheckSquare, ChevronDown, ChevronLeft,
+  CircleDot, Copy, FileText, GripVertical,
+  List, ListOrdered, TextCursorInput, Trash2, Type,
 } from 'lucide-react';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
+import { RichTextEditor } from '../../components/staff/RichTextEditor';
 import {
   DndContext,
   DragOverlay,
@@ -107,46 +106,6 @@ function blankField(type: string): FormField {
 }
 
 // ─── RichTextEditor ───────────────────────────────────────────────────────────
-
-function RichTextEditor({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (html: string) => void;
-}) {
-  const editor = useEditor({
-    extensions: [StarterKit],
-    content: value || '<p></p>',
-    onUpdate: ({ editor }) => onChange(editor.getHTML()),
-    editorProps: {
-      attributes: {
-        class: 'min-h-[80px] px-3 py-2 text-sm text-zinc-100 outline-none focus:outline-none',
-      },
-    },
-  });
-
-  if (!editor) return null;
-
-  const btn = (active: boolean) =>
-    `rounded p-1 transition-colors ${active ? 'bg-zinc-600 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'}`;
-
-  return (
-    <div className="tiptap-dark overflow-hidden rounded border border-zinc-700 bg-zinc-950">
-      <div className="flex items-center gap-0.5 border-b border-zinc-700 bg-zinc-900 px-2 py-1">
-        <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} className={btn(editor.isActive('bold'))} title="Bold"><Bold className="h-3.5 w-3.5" /></button>
-        <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} className={btn(editor.isActive('italic'))} title="Italic"><Italic className="h-3.5 w-3.5" /></button>
-        <div className="mx-1 h-4 w-px bg-zinc-700" />
-        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={btn(editor.isActive('heading', { level: 2 }))} title="Heading 2"><Heading2 className="h-3.5 w-3.5" /></button>
-        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} className={btn(editor.isActive('heading', { level: 3 }))} title="Heading 3"><Heading3 className="h-3.5 w-3.5" /></button>
-        <div className="mx-1 h-4 w-px bg-zinc-700" />
-        <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={btn(editor.isActive('bulletList'))} title="Bullet list"><List className="h-3.5 w-3.5" /></button>
-        <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={btn(editor.isActive('orderedList'))} title="Ordered list"><ListOrdered className="h-3.5 w-3.5" /></button>
-      </div>
-      <EditorContent editor={editor} />
-    </div>
-  );
-}
 
 // ─── UserTypeDropdown ─────────────────────────────────────────────────────────
 

@@ -48,12 +48,26 @@ export function StaffToolsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-50">Tools</h1>
+        <h1 className="text-2xl font-semibold text-zinc-50">GeoNames</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          GeoNames postal lookup uses <code className="text-zinc-600">ea_geonames_postal_codes</code>. Upload a
+          Postal code lookup uses <code className="text-zinc-600">ea_geonames_postal_codes</code>. Upload a
           GeoNames <code className="text-zinc-600">allCountries.zip</code> postal file (tab-separated) to import via
           the worker.
         </p>
+      </div>
+
+      <div className="flex gap-3 rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-3">
+        <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+          <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clipRule="evenodd" />
+        </svg>
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-amber-300">Not fully connected</p>
+          <p className="text-xs text-amber-400/80">
+            GeoNames data is imported and queryable, but is not yet wired to any live feature — ZIP autofill
+            during booking, geographic provider filtering, and service-area radius matching are all planned but
+            not yet built. The import tool below populates the database for future use.
+          </p>
+        </div>
       </div>
 
       <section className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">

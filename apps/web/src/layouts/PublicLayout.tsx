@@ -15,6 +15,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { OpenBookLogoMark } from '../components/OpenBookLogoMark';
+import { CookieBanner } from '../components/CookieBanner';
 import { useAuth } from '../auth/AuthContext';
 
 async function fetchPublicSettings(): Promise<Record<string, string>> {
@@ -41,6 +42,27 @@ export function PublicLayout() {
     queryFn: fetchPublicSettings,
     staleTime: 5 * 60 * 1000,
   });
+
+  const { data: legalSettings = {} } = useQuery({
+    queryKey: ['settings', 'legal', 'public'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings/legal');
+      if (!res.ok) return {} as Record<string, string>;
+      return res.json() as Promise<Record<string, string>>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const showTerms =
+    legalSettings.display_terms_and_conditions === '1' &&
+    !!legalSettings.terms_and_conditions_content?.trim();
+  const showPrivacy =
+    legalSettings.display_privacy_policy === '1' &&
+    !!legalSettings.privacy_policy_content?.trim();
+  const showCookieBanner =
+    legalSettings.display_cookie_notice === '1' &&
+    !!legalSettings.cookie_notice_content?.trim();
+  const hasFooterLinks = showTerms || showPrivacy;
 
   const companyLink = settings.company_link;
   const companyLogo = settings.company_logo;
@@ -331,6 +353,33 @@ export function PublicLayout() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <Outlet />
       </main>
+
+      {hasFooterLinks && (
+        <footer className="border-t border-slate-200 bg-white py-4">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-4 px-4">
+            {showTerms && (
+              <Link
+                to="/terms"
+                className="text-xs text-slate-500 transition hover:text-slate-800 hover:underline"
+              >
+                Terms &amp; Conditions
+              </Link>
+            )}
+            {showPrivacy && (
+              <Link
+                to="/privacy"
+                className="text-xs text-slate-500 transition hover:text-slate-800 hover:underline"
+              >
+                Privacy Policy
+              </Link>
+            )}
+          </div>
+        </footer>
+      )}
+
+      {showCookieBanner && (
+        <CookieBanner content={legalSettings.cookie_notice_content} />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -9,20 +9,22 @@ import {
   ClipboardList,
   CreditCard,
   FileText,
+  Globe,
   KeyRound,
   LogIn,
   Mail,
   MapPin,
+  Plug2,
   Scale,
   Settings,
   Shield,
   UserCircle,
   Webhook,
-  Wrench,
 } from 'lucide-react';
 import { apiJson } from '../../../lib/api';
 import { StaffLdapImportPanel } from '../../../components/staff/StaffLdapImportPanel';
 import { StaffWorkingPlanEditor } from '../../../components/staff/StaffWorkingPlanEditor';
+import { RichTextEditor } from '../../../components/staff/RichTextEditor';
 import { TIMEZONE_GROUPS } from '../../../lib/timezones';
 
 type SectionValues = Record<string, string>;
@@ -35,16 +37,11 @@ const NAV: { path: string; label: string; icon: LucideIcon; exact?: boolean }[] 
   { path: 'customer-login', label: 'Customer login', icon: LogIn },
   { path: 'customer-profiles', label: 'Customer profiles', icon: UserCircle },
   { path: 'legal', label: 'Legal', icon: Scale },
-  { path: 'analytics', label: 'Analytics', icon: BarChart3 },
   { path: 'service-areas', label: 'Service areas', icon: MapPin },
   { path: 'forms', label: 'Forms', icon: FileText, exact: true },
   { path: 'custom-fields', label: 'Custom fields', icon: ClipboardList, exact: true },
-  { path: 'tools', label: 'Tools', icon: Wrench, exact: true },
   { path: 'consents', label: 'Consents', icon: Shield, exact: true },
-  { path: 'stripe', label: 'Stripe', icon: CreditCard },
-  { path: 'api', label: 'API', icon: KeyRound },
-  { path: 'ldap', label: 'LDAP', icon: Shield },
-  { path: 'webhooks', label: 'Webhooks', icon: Webhook },
+  { path: 'integrations', label: 'Integrations', icon: Plug2, exact: true },
 ];
 
 const settingsNavLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -55,7 +52,42 @@ const settingsNavLinkClass = ({ isActive }: { isActive: boolean }) =>
       : 'text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100',
   ].join(' ');
 
+const INTEGRATION_SUB_PATHS = new Set([
+  'webhooks', 'analytics', 'matomo', 'stripe', 'api', 'ldap', 'tools',
+]);
+
+const SECTION_LABELS: Record<string, string> = {
+  general: 'General',
+  business: 'Business',
+  booking: 'Booking',
+  'email-notifications': 'Email / SMTP',
+  'customer-login': 'Customer Login',
+  'customer-profiles': 'Customer Profiles',
+  legal: 'Legal',
+  'service-areas': 'Service Areas',
+  forms: 'Forms',
+  'custom-fields': 'Custom Fields',
+  consents: 'Consents',
+  analytics: 'Google Analytics',
+  matomo: 'Matomo Analytics',
+  stripe: 'Stripe',
+  api: 'API',
+  ldap: 'LDAP',
+  webhooks: 'Webhooks',
+  tools: 'GeoNames',
+};
+
+/** All valid :section values — includes integration sub-pages removed from the sidebar nav. */
+const VALID_SECTIONS = new Set([
+  ...NAV.map((n) => n.path),
+  ...INTEGRATION_SUB_PATHS,
+]);
+
 export function StaffSettingsLayout() {
+  const location = useLocation();
+  const segment = location.pathname.split('/').filter(Boolean).pop() ?? '';
+  const isIntegrationSubPage = INTEGRATION_SUB_PATHS.has(segment);
+
   return (
     /* Pull back the p-6 from the shell's inner wrapper so we can own the
        full height and give each column its own independent scroll area. */
@@ -73,7 +105,11 @@ export function StaffSettingsLayout() {
                 <NavLink
                   to={`/staff/settings/${n.path}`}
                   end={n.exact}
-                  className={settingsNavLinkClass}
+                  className={({ isActive }) =>
+                    settingsNavLinkClass({
+                      isActive: isActive || (n.path === 'integrations' && isIntegrationSubPage),
+                    })
+                  }
                 >
                   <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
                   <span className="min-w-0">{n.label}</span>
@@ -84,6 +120,19 @@ export function StaffSettingsLayout() {
         </ul>
       </nav>
       <div className="flex-1 overflow-y-auto p-6">
+        {isIntegrationSubPage && (
+          <div className="mb-5">
+            <Link
+              to="/staff/settings/integrations"
+              className="inline-flex items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+            >
+              <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M10 3L5 8l5 5" />
+              </svg>
+              Integrations
+            </Link>
+          </div>
+        )}
         <Outlet />
       </div>
     </div>
@@ -100,6 +149,7 @@ type FieldDef = {
     | 'number'
     | 'password'
     | 'textarea'
+    | 'richtext'
     | 'select'
     | 'logo'
     | 'color'
@@ -323,14 +373,16 @@ const SECTION_FIELDS: Record<string, FieldDef[]> = {
   ],
   legal: [
     { key: 'display_terms_and_conditions', label: 'Show T&C', type: 'select', options: [{ value: '0', label: 'No' }, { value: '1', label: 'Yes' }] },
-    { key: 'terms_and_conditions_content', label: 'T&C content', type: 'textarea' },
+    { key: 'terms_and_conditions_content', label: 'T&C content', type: 'richtext' },
     { key: 'display_cookie_notice', label: 'Show cookie notice', type: 'select', options: [{ value: '0', label: 'No' }, { value: '1', label: 'Yes' }] },
-    { key: 'cookie_notice_content', label: 'Cookie notice content', type: 'textarea' },
+    { key: 'cookie_notice_content', label: 'Cookie notice content', type: 'richtext' },
     { key: 'display_privacy_policy', label: 'Show privacy policy', type: 'select', options: [{ value: '0', label: 'No' }, { value: '1', label: 'Yes' }] },
-    { key: 'privacy_policy_content', label: 'Privacy policy content', type: 'textarea' },
+    { key: 'privacy_policy_content', label: 'Privacy policy content', type: 'richtext' },
   ],
   analytics: [
     { key: 'google_analytics_code', label: 'Google Analytics code', placeholder: 'G-XXXXXX' },
+  ],
+  matomo: [
     { key: 'matomo_analytics_active', label: 'Matomo enabled', type: 'select', options: [{ value: '0', label: 'No' }, { value: '1', label: 'Yes' }] },
     { key: 'matomo_analytics_url', label: 'Matomo URL', type: 'url', placeholder: 'https://matomo.example.com' },
     { key: 'matomo_analytics_site_id', label: 'Matomo site ID' },
@@ -405,7 +457,6 @@ function SectionForm({ section }: { section: string }) {
   });
 
   if (q.isPending) return <p className="text-sm text-zinc-500">Loading…</p>;
-  if (q.isError) return <p className="text-sm text-red-400">{(q.error as Error).message}</p>;
 
   const serverValues: SectionValues = Object.fromEntries(
     Object.entries(q.data ?? {}).map(([k, v]) => [k, v ?? '']),
@@ -414,12 +465,17 @@ function SectionForm({ section }: { section: string }) {
   // key the inner form on the data identity so React remounts it (and resets
   // local state) when fresh server data arrives — avoids setState-in-effect.
   return (
-    <SectionFormInner
-      key={JSON.stringify(serverValues)}
-      section={section}
-      initialValues={serverValues}
-      fields={fields}
-    />
+    <>
+      {q.isError && (
+        <p className="text-sm text-amber-400">{(q.error as Error).message}</p>
+      )}
+      <SectionFormInner
+        key={JSON.stringify(serverValues)}
+        section={section}
+        initialValues={serverValues}
+        fields={fields}
+      />
+    </>
   );
 }
 
@@ -506,7 +562,13 @@ function SectionFormInner({
         <label key={field.key} className="block space-y-1">
           <span className="text-xs uppercase text-zinc-500">{field.label}</span>
           {field.hint && <span className="block text-xs font-normal normal-case text-zinc-600">{field.hint}</span>}
-          {field.type === 'textarea' ? (
+          {field.type === 'richtext' ? (
+            <RichTextEditor
+              value={values[field.key] ?? ''}
+              onChange={(html) => setValues((v) => ({ ...v, [field.key]: html }))}
+              minHeightClass="min-h-[180px]"
+            />
+          ) : field.type === 'textarea' ? (
             <textarea
               rows={4}
               value={values[field.key] ?? ''}
@@ -645,46 +707,128 @@ export function StaffSettingsSectionPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (section && !NAV.some((n) => n.path === section)) {
+    if (section && !VALID_SECTIONS.has(section)) {
       void navigate('/staff/settings/general', { replace: true });
     }
   }, [section, navigate]);
 
   const nav = NAV.find((n) => n.path === section);
+  const title = section ? (SECTION_LABELS[section] ?? nav?.label ?? section) : '';
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-medium text-zinc-100">{nav?.label ?? section}</h2>
+      <h1 className="text-2xl font-semibold text-zinc-50">{title}</h1>
       {section && <SectionForm section={section} />}
       {section === 'ldap' && <StaffLdapImportPanel />}
     </div>
   );
 }
 
-const INTEGRATION_LINKS: { path: string; label: string; description: string }[] = [
-  { path: 'api', label: 'API', description: 'Bearer token for REST integrations' },
-  { path: 'stripe', label: 'Stripe', description: 'Payments and webhooks' },
-  { path: 'ldap', label: 'LDAP', description: 'Directory authentication and import' },
-  { path: 'analytics', label: 'Analytics', description: 'Google Analytics and Matomo' },
+type IntegrationCardDef = {
+  label: string;
+  description: string;
+  path: string;
+  icon: LucideIcon;
+};
+
+const INTEGRATION_CARDS: IntegrationCardDef[] = [
+  {
+    label: 'Webhooks',
+    description:
+      'Send HTTP notifications to external apps when events occur — such as when an appointment is created, updated, or a customer is removed.',
+    path: '/staff/settings/webhooks',
+    icon: Webhook,
+  },
+  {
+    label: 'Google Analytics',
+    description:
+      'Automatically inject a tracking tag into the public booking page to monitor session behaviour and conversion.',
+    path: '/staff/settings/analytics',
+    icon: BarChart3,
+  },
+  {
+    label: 'Matomo Analytics',
+    description:
+      'Self-hosted, privacy-friendly analytics on the public booking page with no third-party data sharing.',
+    path: '/staff/settings/matomo',
+    icon: BarChart3,
+  },
+  {
+    label: 'API',
+    description:
+      'Interact with all booking data over HTTP via the REST API and build custom integrations or automations.',
+    path: '/staff/settings/api',
+    icon: KeyRound,
+  },
+  {
+    label: 'LDAP',
+    description:
+      'Connect to an LDAP directory to automatically import users and enable SSO with their directory password.',
+    path: '/staff/settings/ldap',
+    icon: Shield,
+  },
+  {
+    label: 'Stripe',
+    description:
+      'Accept payments for appointments, configure down-payment rules, and manage billing via Stripe.',
+    path: '/staff/settings/stripe',
+    icon: CreditCard,
+  },
+  {
+    label: 'Google Calendar',
+    description:
+      'Sync appointments with your Google Calendar to stay organised and avoid scheduling conflicts.',
+    path: '/staff/account/integrations',
+    icon: Calendar,
+  },
+  {
+    label: 'GeoNames',
+    description:
+      'Import postal code data to enable ZIP validation, city autofill during booking, and geographic provider filtering by service area.',
+    path: '/staff/settings/tools',
+    icon: Globe,
+  },
 ];
+
+function IntegrationCard({ item }: { item: IntegrationCardDef }) {
+  const Icon = item.icon;
+  return (
+    <div className="flex h-full flex-col rounded-lg border border-zinc-800 bg-zinc-900/40 p-5 transition-colors hover:border-zinc-700">
+      <div className="mb-3 flex items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-zinc-700 bg-zinc-800">
+          <Icon className="h-4 w-4 text-zinc-400" aria-hidden />
+        </span>
+        <h3 className="text-sm font-semibold text-zinc-100">{item.label}</h3>
+      </div>
+      <p className="mb-5 flex-1 text-xs leading-relaxed text-zinc-500">{item.description}</p>
+      <div>
+        <NavLink
+          to={item.path}
+          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+        >
+          Configure
+          <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M6 3l5 5-5 5" />
+          </svg>
+        </NavLink>
+      </div>
+    </div>
+  );
+}
 
 export function StaffSettingsIntegrationsPage() {
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-medium text-zinc-100">Integrations</h2>
-      <p className="text-sm text-zinc-500">
-        Quick links to integration-related settings. Each opens a standard settings section.
-      </p>
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {INTEGRATION_LINKS.map((item) => (
-          <li key={item.path}>
-            <NavLink
-              to={`/staff/settings/${item.path}`}
-              className="block rounded-lg border border-zinc-800 bg-zinc-950/50 p-4 transition-colors hover:border-zinc-600"
-            >
-              <span className="font-medium text-zinc-100">{item.label}</span>
-              <p className="mt-1 text-xs text-zinc-500">{item.description}</p>
-            </NavLink>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-medium text-zinc-100">Integrations</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          Connect OpenBook to external services and extend its capabilities.
+        </p>
+      </div>
+      <ul className="grid gap-4 sm:grid-cols-2">
+        {INTEGRATION_CARDS.map((item) => (
+          <li key={item.label} className="flex">
+            <IntegrationCard item={item} />
           </li>
         ))}
       </ul>
