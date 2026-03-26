@@ -55,6 +55,17 @@ export const generalSettingsSchema = z.object({
   theme: z.enum(['default', 'light', 'dark']).optional(),
   default_language: z.string().max(16).optional(),
   default_timezone: z.string().max(128).optional(),
+  /**
+   * Max file upload size stored in MB (1–10240). UI allows entry in MB or GB.
+   * Stored as a string like all settings (e.g. "2048" = 2 GB).
+   */
+  max_upload_size_mb: z
+    .string()
+    .regex(/^\d+$/, 'Must be a whole number')
+    .refine((v) => parseInt(v, 10) >= 1 && parseInt(v, 10) <= 10240, {
+      message: 'Must be between 1 MB and 10 GB (10240 MB)',
+    })
+    .optional(),
 });
 export type GeneralSettings = z.infer<typeof generalSettingsSchema>;
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   BadRequestException,
@@ -14,10 +14,13 @@ import {
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,6 +31,8 @@ import {
 } from '../auth/staff-auth.guard';
 import { can, canView } from '../auth/permissions.ea';
 
+const UPLOAD_HARD_LIMIT_BYTES = 10240 * 1024 * 1024; // absolute ceiling; soft limit read from settings
+
 function uploadRoot(): string {
   return process.env.UPLOAD_DIR?.trim() || join(process.cwd(), 'uploads');
 }
@@ -36,6 +41,10 @@ function ensureUploadDir(dir: string) {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
+}
+
+function safeDeleteFile(filename: string) {
+  try { unlinkSync(join(uploadRoot(), 'user-files', filename)); } catch { /* ignore */ }
 }
 
 @Controller('staff/customers')
@@ -399,7 +408,7 @@ export class StaffCustomersController {
           cb(null, `${randomUUID()}${ext}`);
         },
       }),
-      limits: { fileSize: 15 * 1024 * 1024 },
+      limits: { fileSize: UPLOAD_HARD_LIMIT_BYTES },
     }),
   )
   async uploadFile(
@@ -414,6 +423,11 @@ export class StaffCustomersController {
     if (!file?.filename) {
       throw new BadRequestException('file is required');
     }
+    const limitMb = parseInt((await this.settings.getSettingByName('max_upload_size_mb')) ?? '15', 10) || 15;
+    if (file.size > limitMb * 1024 * 1024) {
+      safeDeleteFile(file.filename);
+      throw new BadRequestException(`File exceeds the configured limit of ${limitMb} MB`);
+    }
     const uid = await this.assertCustomerUser(id);
     await this.prisma.userFile.create({
       data: {
@@ -425,6 +439,30 @@ export class StaffCustomersController {
       },
     });
     return { ok: true };
+  }
+
+  @Get(':id/files/:fileId')
+  async serveFile(
+    @Req() req: RequestWithStaff,
+    @Param('id') id: string,
+    @Param('fileId') fileId: string,
+    @Query('download') download: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    if (!canView(req.staffUser.permissions, 'customers')) throw new ForbiddenException();
+    await this.assertCustomerDirectoryAccess(req);
+    const uid = await this.assertCustomerUser(id);
+    let fid: bigint;
+    try { fid = BigInt(fileId); } catch { throw new NotFoundException(); }
+    const row = await this.prisma.userFile.findFirst({ where: { id: fid, idUsers: uid } });
+    if (!row) throw new NotFoundException();
+    const filePath = join(uploadRoot(), 'user-files', row.filename);
+    if (!existsSync(filePath)) throw new NotFoundException('File not found on disk');
+    const disposition = download === '1' ? 'attachment' : 'inline';
+    const safeName = encodeURIComponent(row.originalName).replace(/%20/g, ' ');
+    res.set('Content-Type', row.mimeType || 'application/octet-stream');
+    res.set('Content-Disposition', `${disposition}; filename="${safeName}"`);
+    return new StreamableFile(createReadStream(filePath));
   }
 
   @Delete(':id/files/:fileId')

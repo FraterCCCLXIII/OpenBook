@@ -108,13 +108,74 @@ type FieldDef = {
     | 'select'
     | 'logo'
     | 'color'
-    | 'timezoneSelect';
+    | 'timezoneSelect'
+    | 'fileSizeWithUnit';
   options?: { value: string; label: string }[];
   placeholder?: string;
   secret?: boolean;
   /** Short helper under the label (e.g. shared keys across sections). */
   hint?: string;
 };
+
+/** Converts stored MB value to a human { num, unit } pair for display. */
+function mbToDisplay(mbStr: string | undefined): { num: string; unit: 'MB' | 'GB' } {
+  const mb = parseInt(mbStr ?? '15', 10);
+  if (!isNaN(mb) && mb >= 1024 && mb % 1024 === 0) {
+    return { num: String(mb / 1024), unit: 'GB' };
+  }
+  return { num: isNaN(mb) ? '15' : String(mb), unit: 'MB' };
+}
+
+function displayToMb(num: string, unit: 'MB' | 'GB'): string {
+  const n = parseInt(num, 10);
+  if (isNaN(n) || n < 1) return unit === 'GB' ? '1024' : '1';
+  return unit === 'GB' ? String(n * 1024) : String(n);
+}
+
+function FileSizeInput({
+  valueMb,
+  onChange,
+}: {
+  valueMb: string | undefined;
+  onChange: (mbStr: string) => void;
+}) {
+  const initial = mbToDisplay(valueMb);
+  const [num, setNum] = useState(initial.num);
+  const [unit, setUnit] = useState<'MB' | 'GB'>(initial.unit);
+
+  const inputCls =
+    'rounded-l-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2 w-32';
+  const selectCls =
+    'rounded-r-md border border-l-0 border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none ring-emerald-500/50 focus:ring-2';
+
+  return (
+    <div className="flex">
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={num}
+        onChange={(e) => {
+          setNum(e.target.value);
+          onChange(displayToMb(e.target.value, unit));
+        }}
+        className={inputCls}
+      />
+      <select
+        value={unit}
+        onChange={(e) => {
+          const newUnit = e.target.value as 'MB' | 'GB';
+          setUnit(newUnit);
+          onChange(displayToMb(num, newUnit));
+        }}
+        className={selectCls}
+      >
+        <option value="MB">MB</option>
+        <option value="GB">GB</option>
+      </select>
+    </div>
+  );
+}
 
 const SECTION_FIELDS: Record<string, FieldDef[]> = {
   general: [
@@ -171,6 +232,12 @@ const SECTION_FIELDS: Record<string, FieldDef[]> = {
       ],
     },
     { key: 'default_timezone', label: 'Default timezone', type: 'timezoneSelect' },
+    {
+      key: 'max_upload_size_mb',
+      label: 'Max file upload size',
+      type: 'fileSizeWithUnit',
+      hint: 'Maximum size for a single file upload by staff. Up to 10 GB. Defaults to 15 MB.',
+    },
   ],
   business: [
     { key: 'company_address', label: 'Address' },
@@ -528,6 +595,11 @@ function SectionFormInner({
                 </optgroup>
               ))}
             </select>
+          ) : field.type === 'fileSizeWithUnit' ? (
+            <FileSizeInput
+              valueMb={values[field.key]}
+              onChange={(mbStr) => setValues((v) => ({ ...v, [field.key]: mbStr }))}
+            />
           ) : field.type === 'select' ? (
             <select
               value={values[field.key] ?? ''}

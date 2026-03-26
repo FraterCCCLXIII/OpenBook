@@ -5,12 +5,15 @@ import {
   Briefcase,
   CalendarDays,
   Clock,
+  ClipboardList,
+  FolderOpen,
   Mail,
   Phone,
   User,
 } from 'lucide-react';
 import { apiJson } from '../../lib/api';
 import { StaffWorkingPlanEditor } from '../../components/staff/StaffWorkingPlanEditor';
+import { StaffFilesTab } from '../../components/staff/StaffFilesTab';
 import { TIMEZONE_GROUPS } from '../../lib/timezones';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -65,13 +68,15 @@ function statusBadge(status: string) {
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
-type Tab = 'profile' | 'hours' | 'services' | 'appointments';
+type Tab = 'appointments' | 'details' | 'availability' | 'service-areas' | 'forms' | 'files';
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'hours', label: 'Working Hours', icon: Clock },
-  { id: 'services', label: 'Services', icon: Briefcase },
   { id: 'appointments', label: 'Appointments', icon: CalendarDays },
+  { id: 'details', label: 'Details', icon: User },
+  { id: 'availability', label: 'Availability', icon: Clock },
+  { id: 'service-areas', label: 'Service Areas', icon: Briefcase },
+  { id: 'forms', label: 'Forms', icon: ClipboardList },
+  { id: 'files', label: 'Files', icon: FolderOpen },
 ];
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -80,7 +85,7 @@ export function StaffProviderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<Tab>('profile');
+  const [activeTab, setActiveTab] = useState<Tab>('appointments');
 
   const q = useQuery({
     queryKey: ['staff', 'providers', id],
@@ -186,8 +191,8 @@ export function StaffProviderDetailPage() {
         })}
       </div>
 
-      {/* Profile tab */}
-      {activeTab === 'profile' && (
+      {/* Details tab */}
+      {activeTab === 'details' && (
         <form
           key={provider.id}
           className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-900/30 p-5"
@@ -271,8 +276,8 @@ export function StaffProviderDetailPage() {
         </form>
       )}
 
-      {/* Working Hours tab */}
-      {activeTab === 'hours' && (
+      {/* Availability tab */}
+      {activeTab === 'availability' && (
         <div className="space-y-4">
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5">
             <StaffWorkingPlanEditor
@@ -289,11 +294,11 @@ export function StaffProviderDetailPage() {
         </div>
       )}
 
-      {/* Services tab */}
-      {activeTab === 'services' && (
+      {/* Service Areas tab */}
+      {activeTab === 'service-areas' && (
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5 space-y-4">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
-            Assigned services
+            Service Areas
           </h3>
           {services.isPending && <p className="text-sm text-zinc-500">Loading services…</p>}
           {services.isSuccess && services.data.length === 0 && (
@@ -376,6 +381,21 @@ export function StaffProviderDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Forms tab */}
+      {activeTab === 'forms' && (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5">
+          <p className="text-sm text-zinc-500">Forms coming soon.</p>
+        </div>
+      )}
+
+      {/* Files tab */}
+      {activeTab === 'files' && (
+        <StaffFilesTab
+          basePath={`/api/staff/providers/${encodeURIComponent(id ?? '')}`}
+          queryKey={['staff', 'providers', id ?? '']}
+        />
       )}
     </div>
   );
