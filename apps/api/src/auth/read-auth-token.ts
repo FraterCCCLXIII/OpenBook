@@ -7,7 +7,7 @@ export function readAuthToken(req: Request): string | null {
   if (fromCookie) {
     return fromCookie;
   }
-  const auth = req.headers.authorization;
+  const auth = req.headers?.authorization;
   if (typeof auth === 'string' && auth.startsWith('Bearer ')) {
     return auth.slice(7);
   }

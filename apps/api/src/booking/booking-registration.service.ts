@@ -1,9 +1,13 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { randomBytes } from 'node:crypto';
+import { AuthService } from '../auth/auth.service';
+import { readAuthToken } from '../auth/read-auth-token';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { JobsQueueService } from '../jobs/jobs-queue.service';
@@ -50,9 +54,11 @@ export class BookingRegistrationService {
     private readonly catalog: BookingCatalogService,
     private readonly jobs: JobsQueueService,
     private readonly settings: SettingsService,
+    private readonly auth: AuthService,
   ) {}
 
   async createGuestAppointment(input: {
+    req: Request;
     serviceId: bigint;
     providerId: bigint;
     selectedDate: string;
@@ -68,6 +74,32 @@ export class BookingRegistrationService {
     captcha_token?: string;
     custom_fields?: Record<string, string>;
   }) {
+    if (await this.settings.isPublicBookingDisabled()) {
+      throw new ForbiddenException('Public booking is disabled');
+    }
+
+    if (!(await this.settings.isGuestBookingAllowed())) {
+      const token = readAuthToken(input.req);
+      if (!token) {
+        throw new ForbiddenException(
+          'Booking without signing in is disabled. Sign in to continue.',
+        );
+      }
+      try {
+        const payload = await this.auth.verifyToken(token);
+        if (payload.kind !== 'customer') {
+          throw new ForbiddenException(
+            'Booking requires a signed-in customer account.',
+          );
+        }
+      } catch (e) {
+        if (e instanceof ForbiddenException) throw e;
+        throw new ForbiddenException(
+          'Booking requires a signed-in customer account.',
+        );
+      }
+    }
+
     const email = input.email.trim().toLowerCase();
     const policy = await this.settings.getSettingsByNames([
       'require_captcha',

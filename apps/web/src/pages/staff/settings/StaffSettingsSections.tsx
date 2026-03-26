@@ -390,6 +390,16 @@ const SECTION_FIELDS: Record<string, FieldDef[]> = {
   'customer-login': [
     { key: 'customer_login_enabled', label: 'Customer portal enabled', type: 'select', options: [{ value: '0', label: 'Disabled' }, { value: '1', label: 'Enabled' }] },
     { key: 'customer_login_mode', label: 'Login mode', type: 'select', options: [{ value: 'password', label: 'Password' }, { value: 'otp', label: 'OTP' }, { value: 'both', label: 'Both' }] },
+    {
+      key: 'allow_guest_booking',
+      label: 'Allow booking without signing in',
+      type: 'select',
+      options: [
+        { value: '1', label: 'Yes (guests can use /book)' },
+        { value: '0', label: 'No (customers must sign in first)' },
+      ],
+      hint: 'When set to No, the book wizard only accepts submissions from signed-in customers.',
+    },
   ],
   'customer-profiles': [
     { key: 'display_first_name', label: 'Show first name', type: 'select', options: [{ value: '0', label: 'No' }, { value: '1', label: 'Yes' }] },
@@ -448,6 +458,22 @@ const SECTION_FIELDS: Record<string, FieldDef[]> = {
   ],
 };
 
+const CUSTOMER_LOGIN_MODES = new Set(['password', 'otp', 'both']);
+
+function normalizeCustomerLoginValues(v: SectionValues): SectionValues {
+  const out = { ...v };
+  const enabled = out.customer_login_enabled?.trim();
+  out.customer_login_enabled =
+    enabled === '0' || enabled === '1' ? enabled : '0';
+  const mode = out.customer_login_mode?.trim();
+  out.customer_login_mode = CUSTOMER_LOGIN_MODES.has(mode ?? '')
+    ? mode!
+    : 'otp';
+  const guest = out.allow_guest_booking?.trim();
+  out.allow_guest_booking = guest === '0' || guest === '1' ? guest : '1';
+  return out;
+}
+
 function SectionForm({ section }: { section: string }) {
   const fields = SECTION_FIELDS[section] ?? [];
 
@@ -458,9 +484,12 @@ function SectionForm({ section }: { section: string }) {
 
   if (q.isPending) return <p className="text-sm text-zinc-500">Loading…</p>;
 
-  const serverValues: SectionValues = Object.fromEntries(
+  let serverValues: SectionValues = Object.fromEntries(
     Object.entries(q.data ?? {}).map(([k, v]) => [k, v ?? '']),
   );
+  if (section === 'customer-login') {
+    serverValues = normalizeCustomerLoginValues(serverValues);
+  }
 
   // key the inner form on the data identity so React remounts it (and resets
   // local state) when fresh server data arrives — avoids setState-in-effect.
@@ -510,6 +539,13 @@ function SectionFormInner({
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['staff', 'settings', 'section', section] });
+      if (
+        section === 'customer-login' ||
+        section === 'booking' ||
+        section === 'general'
+      ) {
+        void qc.invalidateQueries({ queryKey: ['settings', 'public'] });
+      }
     },
   });
 
@@ -522,7 +558,9 @@ function SectionFormInner({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    m.mutate(values);
+    const payload =
+      section === 'customer-login' ? normalizeCustomerLoginValues(values) : values;
+    m.mutate(payload);
   }
 
   return (

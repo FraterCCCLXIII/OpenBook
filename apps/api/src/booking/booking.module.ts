@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { AvailabilityModule } from '../availability/availability.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { SettingsModule } from '../settings/settings.module';
@@ -7,7 +8,7 @@ import { BookingController } from './booking.controller';
 import { BookingRegistrationService } from './booking-registration.service';
 
 @Module({
-  imports: [AvailabilityModule, PrismaModule, SettingsModule],
+  imports: [AuthModule, AvailabilityModule, PrismaModule, SettingsModule],
   controllers: [BookingController],
   providers: [BookingCatalogService, BookingRegistrationService],
 })

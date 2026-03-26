@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Post,
   Req,
@@ -27,6 +28,12 @@ export class AuthController {
     private readonly otp: CustomerOtpService,
     private readonly settings: SettingsService,
   ) {}
+
+  private async assertCustomerPortalEnabled(): Promise<void> {
+    if (!(await this.settings.isCustomerPortalEnabled())) {
+      throw new ForbiddenException('Customer portal is disabled');
+    }
+  }
 
   /** Double-submit CSRF token for SPA when `OPENBOOK_CSRF_ENABLED` is set (see ADR-004 / ADR-005). */
   @Get('csrf-token')
@@ -74,6 +81,7 @@ export class AuthController {
     },
     @Res({ passthrough: true }) res: Response,
   ) {
+    await this.assertCustomerPortalEnabled();
     const { token, user } = await this.auth.customerRegister(
       body.email ?? '',
       body.password ?? '',
@@ -97,6 +105,7 @@ export class AuthController {
     if (!body.email?.trim() || !body.password) {
       throw new BadRequestException('email and password are required');
     }
+    await this.assertCustomerPortalEnabled();
     const { token, user } = await this.auth.customerLogin(
       body.email.trim(),
       body.password,
@@ -118,6 +127,7 @@ export class AuthController {
 
   @Post('customer/request-otp')
   async requestOtp(@Body() body: { email?: string }) {
+    await this.assertCustomerPortalEnabled();
     if (!body.email?.trim()) {
       throw new BadRequestException('email is required');
     }
@@ -148,6 +158,7 @@ export class AuthController {
     if (!body.email?.trim() || !body.code?.trim()) {
       throw new BadRequestException('email and code are required');
     }
+    await this.assertCustomerPortalEnabled();
     await this.otp.verifyCode(body.email.trim(), body.code.trim());
     const { token, isNew } = await this.auth.customerOtpLogin(body.email.trim());
     res.cookie('ob_auth', token, {
@@ -167,6 +178,7 @@ export class AuthController {
     if (!body.email?.trim() || !body.password) {
       throw new BadRequestException('email and password are required');
     }
+    await this.assertCustomerPortalEnabled();
     const { token, user } = await this.auth.customerCreatePassword(
       body.email.trim(),
       body.password,

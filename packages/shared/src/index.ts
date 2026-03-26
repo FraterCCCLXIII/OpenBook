@@ -181,8 +181,19 @@ export const matomoSettingsSchema = z.object({
 export type MatomoSettings = z.infer<typeof matomoSettingsSchema>;
 
 export const customerLoginSettingsSchema = z.object({
-  customer_login_enabled: z.enum(['0', '1']).optional(),
-  customer_login_mode: z.enum(['password', 'otp', 'both']).optional(),
+  customer_login_enabled: z
+    .union([z.enum(['0', '1']), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
+  customer_login_mode: z
+    .union([z.enum(['password', 'otp', 'both']), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
+  /** When `'0'`, only signed-in customers may complete the public book wizard (cookie required). */
+  allow_guest_booking: z
+    .union([z.enum(['0', '1']), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
 });
 export type CustomerLoginSettings = z.infer<typeof customerLoginSettingsSchema>;
 

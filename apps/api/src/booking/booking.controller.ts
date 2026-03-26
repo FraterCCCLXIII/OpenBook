@@ -5,7 +5,9 @@ import {
   Get,
   Param,
   Post,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { BookingCatalogService } from './booking-catalog.service';
@@ -94,9 +96,10 @@ export class BookingController {
     });
   }
 
-  /** Anonymous guest booking — creates ea_appointments row (customer optional). */
+  /** Guest or customer booking — creates ea_appointments row (customer optional). */
   @Post('appointments')
   async createAppointment(
+    @Req() req: Request,
     @Body()
     body: {
       service_id?: string;
@@ -126,6 +129,7 @@ export class BookingController {
       throw new BadRequestException('start_time is required');
     }
     return this.registration.createGuestAppointment({
+      req,
       serviceId,
       providerId,
       selectedDate,

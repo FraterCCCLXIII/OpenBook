@@ -18,7 +18,14 @@ async function fetchPublicSettings(): Promise<Record<string, string>> {
 
 // ─── OTP flow ─────────────────────────────────────────────────────────────────
 
-function OtpFlow({ onSuccess }: { onSuccess: (isNew: boolean) => void }) {
+function OtpFlow({
+  onSuccess,
+  alternateSignIn,
+}: {
+  onSuccess: (isNew: boolean) => void;
+  /** In “both” mode, link under the primary action to switch to password sign-in. */
+  alternateSignIn?: { label: string; onClick: () => void };
+}) {
   const { refresh } = useAuth();
   const [step, setStep] = useState<OtpStep>('email');
   const [email, setEmail] = useState('');
@@ -109,6 +116,17 @@ function OtpFlow({ onSuccess }: { onSuccess: (isNew: boolean) => void }) {
               {pending ? 'Sending…' : 'Send Code'}
             </button>
           </form>
+          {alternateSignIn && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                className="booking-link border-0 bg-transparent p-0 text-sm"
+                onClick={alternateSignIn.onClick}
+              >
+                {alternateSignIn.label}
+              </button>
+            </div>
+          )}
         </div>
       </>
     );
@@ -154,6 +172,17 @@ function OtpFlow({ onSuccess }: { onSuccess: (isNew: boolean) => void }) {
             {pending ? 'Verifying…' : 'Verify Code'}
           </button>
         </form>
+        {alternateSignIn && (
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              className="booking-link border-0 bg-transparent p-0 text-sm"
+              onClick={alternateSignIn.onClick}
+            >
+              {alternateSignIn.label}
+            </button>
+          </div>
+        )}
         <div className="mt-4 text-sm text-slate-500 text-center">
           <button
             type="button"
@@ -174,7 +203,14 @@ function OtpFlow({ onSuccess }: { onSuccess: (isNew: boolean) => void }) {
 
 // ─── Password flow ────────────────────────────────────────────────────────────
 
-function PasswordFlow({ onSuccess }: { onSuccess: (isNew: boolean) => void }) {
+function PasswordFlow({
+  onSuccess,
+  alternateSignIn,
+}: {
+  onSuccess: (isNew: boolean) => void;
+  /** In “both” mode, link under Sign in to switch to OTP. */
+  alternateSignIn?: { label: string; onClick: () => void };
+}) {
   const { customerLogin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -251,50 +287,43 @@ function PasswordFlow({ onSuccess }: { onSuccess: (isNew: boolean) => void }) {
             {pending ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+        {alternateSignIn && (
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              className="booking-link border-0 bg-transparent p-0 text-sm"
+              onClick={alternateSignIn.onClick}
+            >
+              {alternateSignIn.label}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
 }
 
-// ─── Both-mode tab switcher ───────────────────────────────────────────────────
+// ─── Both-mode: password default, link to switch to OTP and back ───────────────
 
 function BothFlow({ onSuccess }: { onSuccess: (isNew: boolean) => void }) {
-  const [method, setMethod] = useState<'otp' | 'password'>('otp');
+  const [method, setMethod] = useState<'otp' | 'password'>('password');
 
-  return (
-    <>
-      <div className="flex border-b border-slate-100 mb-1">
-        <button
-          type="button"
-          onClick={() => setMethod('otp')}
-          className={[
-            'flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors',
-            method === 'otp'
-              ? 'border-[--color-brand] text-[--color-brand]'
-              : 'border-transparent text-slate-400 hover:text-slate-600',
-          ].join(' ')}
-        >
-          Email Code
-        </button>
-        <button
-          type="button"
-          onClick={() => setMethod('password')}
-          className={[
-            'flex-1 py-2.5 text-sm font-medium border-b-2 transition-colors',
-            method === 'password'
-              ? 'border-[--color-brand] text-[--color-brand]'
-              : 'border-transparent text-slate-400 hover:text-slate-600',
-          ].join(' ')}
-        >
-          Password
-        </button>
-      </div>
-      {method === 'otp' ? (
-        <OtpFlow onSuccess={onSuccess} />
-      ) : (
-        <PasswordFlow onSuccess={onSuccess} />
-      )}
-    </>
+  return method === 'otp' ? (
+    <OtpFlow
+      onSuccess={onSuccess}
+      alternateSignIn={{
+        label: 'Use password instead',
+        onClick: () => setMethod('password'),
+      }}
+    />
+  ) : (
+    <PasswordFlow
+      onSuccess={onSuccess}
+      alternateSignIn={{
+        label: 'Use OTP code instead',
+        onClick: () => setMethod('otp'),
+      }}
+    />
   );
 }
 
@@ -311,9 +340,14 @@ export function CustomerLoginPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const portalEnabled = settings.customer_login_enabled !== '0';
+  const portalEnabled = settings.customer_login_enabled === '1';
+  const rawMode = settings.customer_login_mode?.trim();
+  const modeOk =
+    rawMode === 'password' || rawMode === 'otp' || rawMode === 'both';
   const loginMode: LoginMode = portalEnabled
-    ? ((settings.customer_login_mode as LoginMode | undefined) ?? 'otp')
+    ? modeOk
+      ? (rawMode as LoginMode)
+      : 'otp'
     : 'none';
 
   function onSuccess(isNew: boolean) {
@@ -322,6 +356,7 @@ export function CustomerLoginPage() {
   }
 
   const showCreateAccount = loginMode === 'password' || loginMode === 'both';
+  const guestBookingAllowed = settings.allow_guest_booking !== '0';
 
   return (
     <div className="flex justify-center">
@@ -336,10 +371,11 @@ export function CustomerLoginPage() {
                 <h2 className="frame-title">Customer portal</h2>
                 <div className="frame-content space-y-4 text-center">
                   <p className="text-sm text-slate-500">
-                    The customer portal is currently disabled.
+                    The customer portal is currently disabled. Signing in and booking through
+                    your account are not available.
                   </p>
-                  <Link to="/book" className="booking-button block">
-                    Book an appointment
+                  <Link to="/" className="booking-button block">
+                    Back to home
                   </Link>
                 </div>
               </>
@@ -348,12 +384,14 @@ export function CustomerLoginPage() {
         </div>
 
         {/* Frame footer */}
-        {loginMode !== 'none' && (
+        {loginMode !== 'none' && (guestBookingAllowed || showCreateAccount) && (
           <div id="frame-footer" className="mt-6 text-center">
-            <div className="flex justify-center gap-4 text-sm text-slate-500">
-              <Link to="/book" className="booking-link">
-                Book without signing in
-              </Link>
+            <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-500">
+              {guestBookingAllowed && (
+                <Link to="/book" className="booking-link">
+                  Book without signing in
+                </Link>
+              )}
               {showCreateAccount && (
                 <Link to="/customer/register" className="booking-link">
                   Create account

@@ -40,6 +40,7 @@ const PUBLIC_SETTING_NAMES = new Set([
   'disable_booking_message',
   'customer_login_enabled',
   'customer_login_mode',
+  'allow_guest_booking',
   /** Public booking step; paired with env `OPENBOOK_TURNSTILE_SITE_KEY` for the widget. */
   'require_captcha',
 ]);
@@ -109,6 +110,24 @@ export class SettingsService {
   async getSettingByName(name: string): Promise<string | null> {
     const row = await this.prisma.setting.findFirst({ where: { name } });
     return row?.value ?? null;
+  }
+
+  /** When true, anonymous and customer self-service booking must be rejected. */
+  async isPublicBookingDisabled(): Promise<boolean> {
+    const v = await this.getSettingByName('disable_booking');
+    return v === '1';
+  }
+
+  /** When true, customer login, registration, and portal routes are allowed. */
+  async isCustomerPortalEnabled(): Promise<boolean> {
+    const v = await this.getSettingByName('customer_login_enabled');
+    return v === '1';
+  }
+
+  /** When false, `POST /booking/appointments` requires a signed-in customer session. */
+  async isGuestBookingAllowed(): Promise<boolean> {
+    const v = await this.getSettingByName('allow_guest_booking');
+    return v !== '0';
   }
 
   async getSettingsByNames(

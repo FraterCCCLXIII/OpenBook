@@ -21,6 +21,12 @@ async function fetchAppointments(): Promise<{ items: AppointmentRow[] }> {
   return res.json() as Promise<{ items: AppointmentRow[] }>;
 }
 
+async function fetchPublicSettings(): Promise<Record<string, string>> {
+  const res = await fetch('/api/settings/public');
+  if (!res.ok) return {};
+  return res.json() as Promise<Record<string, string>>;
+}
+
 type ServiceOption = { id: string; name: string | null };
 type ProviderOption = { id: string; displayName: string };
 
@@ -175,6 +181,16 @@ export function CustomerBookingsPage() {
   const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
 
+  const settingsQ = useQuery({
+    queryKey: ['settings', 'public'],
+    queryFn: fetchPublicSettings,
+    staleTime: 5 * 60 * 1000,
+  });
+  const bookingDisabled = settingsQ.data?.disable_booking === '1';
+  const disabledMessage =
+    settingsQ.data?.disable_booking_message?.trim() ||
+    'New online bookings are not available right now. Please contact us if you need an appointment.';
+
   const q = useQuery({
     queryKey: ['customer', 'appointments'],
     queryFn: fetchAppointments,
@@ -182,17 +198,23 @@ export function CustomerBookingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">{t('my_bookings')}</h1>
           <p className="mt-1 text-sm text-slate-500">
             Your upcoming and past appointments.
           </p>
         </div>
-        <Button onClick={() => setShowModal(true)}>
-          <CalendarPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          Book appointment
-        </Button>
+        {bookingDisabled ? (
+          <p className="max-w-md rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {disabledMessage}
+          </p>
+        ) : (
+          <Button onClick={() => setShowModal(true)}>
+            <CalendarPlus className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Book appointment
+          </Button>
+        )}
       </div>
 
       {showModal && <NewBookingModal onClose={() => setShowModal(false)} />}
@@ -210,14 +232,16 @@ export function CustomerBookingsPage() {
         <Card className="py-14 text-center">
           <CalendarPlus className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
           <p className="text-sm font-medium text-slate-500">No bookings yet.</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4"
-            onClick={() => setShowModal(true)}
-          >
-            Book your first appointment
-          </Button>
+          {!bookingDisabled && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => setShowModal(true)}
+            >
+              Book your first appointment
+            </Button>
+          )}
         </Card>
       )}
 

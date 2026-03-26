@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -12,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import {
   CustomerAuthGuard,
   type RequestWithCustomer,
@@ -26,6 +28,7 @@ export class CustomerAppointmentsController {
     private readonly prisma: PrismaService,
     private readonly availability: AvailabilityService,
     private readonly queue: JobsQueueService,
+    private readonly settings: SettingsService,
   ) {}
 
   @Post()
@@ -43,6 +46,13 @@ export class CustomerAppointmentsController {
       throw new BadRequestException(
         'serviceId, providerId, startDatetime are required',
       );
+    }
+
+    if (await this.settings.isPublicBookingDisabled()) {
+      throw new ForbiddenException('Public booking is disabled');
+    }
+    if (!(await this.settings.isCustomerPortalEnabled())) {
+      throw new ForbiddenException('Customer portal is disabled');
     }
 
     const serviceId = BigInt(body.serviceId);

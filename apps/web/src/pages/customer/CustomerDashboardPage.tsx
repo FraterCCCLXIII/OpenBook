@@ -22,6 +22,17 @@ export function CustomerDashboardPage() {
     queryFn: () => apiJson<{ items: FormListItem[] }>('/api/customer/forms'),
   });
 
+  const settingsQ = useQuery({
+    queryKey: ['settings', 'public'],
+    queryFn: async () => {
+      const r = await fetch('/api/settings/public');
+      if (!r.ok) return {} as Record<string, string>;
+      return r.json() as Promise<Record<string, string>>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const bookingDisabled = settingsQ.data?.disable_booking === '1';
+
   const hasForms = (formsQ.data?.items.length ?? 0) > 0;
   const showGettingStarted = !profileComplete || hasForms;
 
@@ -33,21 +44,40 @@ export function CustomerDashboardPage() {
 
           <div className="mt-6 flex flex-col gap-4">
             {/* Book Session */}
-            <Link
-              to="/book"
-              className="booking-card flex flex-col items-start p-6"
-              aria-label="Book a new session"
-            >
-              <div className="mb-2 text-slate-400">
-                <CalendarPlus className="h-7 w-7" aria-hidden="true" />
-              </div>
-              <div className="text-left">
-                <div className="mb-0.5 text-xl font-bold">Book Session</div>
-                <div className="booking-card-subtitle text-sm">
-                  Schedule a new appointment
+            {bookingDisabled ? (
+              <div
+                className="booking-card flex flex-col items-start border-dashed border-slate-300 bg-slate-50/80 p-6 opacity-90"
+                aria-label="Online booking is unavailable"
+              >
+                <div className="mb-2 text-slate-400">
+                  <CalendarPlus className="h-7 w-7" aria-hidden="true" />
+                </div>
+                <div className="text-left">
+                  <div className="mb-0.5 text-xl font-bold text-slate-600">
+                    Book Session
+                  </div>
+                  <div className="booking-card-subtitle text-sm text-slate-500">
+                    Online booking is turned off. Contact us to schedule.
+                  </div>
                 </div>
               </div>
-            </Link>
+            ) : (
+              <Link
+                to="/book"
+                className="booking-card flex flex-col items-start p-6"
+                aria-label="Book a new session"
+              >
+                <div className="mb-2 text-slate-400">
+                  <CalendarPlus className="h-7 w-7" aria-hidden="true" />
+                </div>
+                <div className="text-left">
+                  <div className="mb-0.5 text-xl font-bold">Book Session</div>
+                  <div className="booking-card-subtitle text-sm">
+                    Schedule a new appointment
+                  </div>
+                </div>
+              </Link>
+            )}
 
             {/* My Bookings */}
             <Link
